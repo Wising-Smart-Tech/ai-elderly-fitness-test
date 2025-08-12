@@ -1,0 +1,20 @@
+{
+  "name": "elderly-fitness-app",
+  "version": "1.0.0",
+  "scripts": {
+    "install:backend": "cd backend && npm install",
+    "install:frontend": "cd frontend && npm install",
+    "install:all": "npm run install:backend && npm run install:frontend",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "build:frontend": "cd frontend && npm run build",
+    "build": "npm run build:frontend",
+    "start": "cd backend && npm start",
+    "deploy:gcp": "gcloud builds submit --config cloudbuild.yaml",
+    "db:migrate": "cd backend && npm run db:migrate",
+    "db:seed": "cd backend && npm run db:seed"
+  },
+  "keywords": ["elderly", "fitness", "healthcare", "mediapipe", "ai"],
+  "author": "Your Name",
+  "license": "MIT"
+}

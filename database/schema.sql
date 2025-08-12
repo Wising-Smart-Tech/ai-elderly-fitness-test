@@ -48,7 +48,6 @@ CREATE TABLE test_results (
     age_group VARCHAR(10),
     percentile DECIMAL(5,2), -- percentile within age-gender group
     test_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    video_url VARCHAR(500), -- optional: store test video
     raw_data JSONB, -- store pose detection data, timestamps, etc.
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -88,7 +87,6 @@ INSERT INTO system_settings (setting_key, setting_value, description) VALUES
 ('app_version', '1.0.0', 'Current application version'),
 ('maintenance_mode', 'false', 'System maintenance mode'),
 ('max_session_duration', '3600', 'Maximum session duration in seconds'),
-('video_retention_days', '30', 'Days to retain test videos'),
 ('min_age_requirement', '60', 'Minimum age for using the system');
 
 -- Create indexes for better performance
