@@ -78,7 +78,6 @@ INSERT INTO test_types (name, name_chinese, description, unit, duration_seconds)
 ('arm_curl', '肱二頭肌手臂屈舉', '30秒內手臂屈舉次數，評估上肢肌耐力', 'reps', 30),
 ('back_scratch', '抓背測驗', '測量上肢柔軟度', 'cm', NULL),
 ('sit_reach', '椅子坐姿體前彎', '測量下肢柔軟度', 'cm', NULL),
-('single_leg_stand', '30秒單腳站立', '評估靜態平衡', 'seconds', 30),
 ('8ft_up_go', '8英呎起身繞行', '評估敏捷動態平衡', 'seconds', NULL),
 ('step_in_place', '原地站立抬膝', '2分鐘評估心肺有氧耐力', 'reps', 120);
 

@@ -5,7 +5,6 @@ const { body, param, query } = require("express-validator");
 const testController = require("../controllers/testController");
 const { authenticateToken } = require("../middleware/auth");
 const { validateRequest } = require("../middleware/validation");
-const { upload } = require("../middleware/upload");
 
 /**
  * @swagger

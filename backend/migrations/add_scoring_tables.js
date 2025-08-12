@@ -66,7 +66,6 @@ async function runMigration() {
             { name: 'arm_curl', unit: 'reps', description: '30秒內手臂屈舉次數，評估上肢肌耐力 (男性3.6kg，女性2.3kg)' },
             { name: 'back_scratch', unit: 'cm', description: '測量上肢柔軟度，兩手指尖距離' },
             { name: 'sit_reach', unit: 'cm', description: '椅子坐姿體前彎，測量下肢柔軟度' },
-            { name: 'single_leg_stand', unit: 'seconds', description: '30秒單腳站立，評估靜態平衡' },
             { name: '8ft_up_go', unit: 'seconds', description: '2.44公尺起身繞行，評估敏捷動態平衡' },
             { name: 'step_in_place', unit: 'reps', description: '2分鐘原地站立抬膝，評估心肺有氧耐力' },
         ];
@@ -88,9 +87,8 @@ async function runMigration() {
             'arm_curl': 2,         // ID 2 in test_types table
             'back_scratch': 3,     // ID 3 in test_types table
             'sit_reach': 4,        // ID 4 in test_types table
-            // 'single_leg_stand': 5, // No scoring data available in metric_scoring_tables.js
-            '8ft_up_go': 6,        // ID 6 in test_types table
-            'step_in_place': 7,    // ID 7 in test_types table
+            '8ft_up_go': 5,        // ID 5 in test_types table (renumbered after removing single_leg_stand)
+            'step_in_place': 6,    // ID 6 in test_types table (renumbered)
         };
 
         // Clear existing data

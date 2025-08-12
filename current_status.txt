@@ -1,0 +1,107 @@
+ai-elderly-fitness-test/
+├── CLAUDE.md
+├── backend/
+│   ├── Dockerfile
+│   ├── migrations/
+│   │   ├── add_scoring_tables.js
+│   │   └── metric_scoring_tables.js
+│   ├── node_modules/
+│   ├── package-lock.json
+│   ├── package.json
+│   ├── server.js
+│   └── src/
+│       ├── config/
+│       │   └── database.js
+│       ├── controllers/
+│       │   └── testController.js
+│       ├── middleware/
+│       ├── models/
+│       ├── routes/
+│       │   └── tests.js
+│       ├── services/
+│       │   ├── scoringService.js
+│       │   └── testService.js
+│       └── utils/
+├── database/
+│   ├── delete_single_leg_stand.sql
+│   ├── renumber_test_types_v2.sql
+│   ├── renumber_test_types.sql
+│   └── schema.sql
+├── deployment/
+│   └── cloudbuild.yaml
+├── frontend/
+│   ├── eslint.config.js
+│   ├── index.html
+│   ├── node_modules/
+│   ├── package-lock.json
+│   ├── package.json
+│   ├── postcss.config.js
+│   ├── README.md
+│   ├── src/
+│   │   ├── App.css
+│   │   ├── App.jsx
+│   │   ├── components/
+│   │   │   └── TestCamera.jsx
+│   │   ├── contexts/
+│   │   │   ├── AuthContext.jsx
+│   │   │   └── TestContext.jsx
+│   │   ├── hooks/
+│   │   │   ├── useChairStandDetection.js
+│   │   │   └── useMediaPipe.js
+│   │   ├── index.css
+│   │   ├── main.jsx
+│   │   ├── pages/
+│   │   │   └── TestPage.jsx
+│   │   ├── services/
+│   │   └── utils/
+│   ├── tailwind.config.js
+│   └── vite.config.js
+├── index.html
+└── package.json
+
+The project is organized as a monorepo with three main directories:
+  - /backend - Node.js/Express API server with PostgreSQL integration
+  - /frontend - React 18 application with Vite build system
+  - /database - SQL schemas and migration scripts
+
+  Existing Files & Setup
+
+  Backend Setup:
+  - Express server configured in backend/server.js
+  - PostgreSQL database connection in backend/src/config/database.js
+  - Test management services with scoring algorithms
+  - JWT authentication and comprehensive security middleware
+  - API routes for /api/auth, /api/users, /api/tests, /api/reports
+
+  Frontend Setup:
+  - React application with MediaPipe pose detection integration
+  - Key components: TestCamera.jsx for video capture, pose detection hooks
+  - Context providers for authentication and test session management
+  - TailwindCSS for styling with responsive design
+  - Real-time movement tracking for 6 elderly fitness tests
+
+  Database Setup:
+  - PostgreSQL schema with tables for users, test sessions, results, and health metrics
+  - Age/gender-specific scoring tables for performance evaluation
+  - Migration system for schema versioning
+
+  Current Development Status
+
+  Based on git status, recent work includes:
+  - Modified scoring tables migration (backend/migrations/add_scoring_tables.js)
+  - Updated test service (backend/src/services/testService.js)
+  - Database schema changes with test type renumbering scripts
+  - Frontend prototype implementation (Step 4 completed)
+
+  Key Features Implemented
+
+  - 6 Fitness Tests: Chair Stand, Arm Curl, Back Scratch, Sit and Reach, 8-Foot Up and Go, Step
+  in Place
+  - Real-time pose detection using MediaPipe
+  - Age/gender-specific scoring with percentile rankings
+  - JWT authentication with protected routes
+  - Docker containerization for deployment
+  - Google Cloud Platform deployment configuration
+
+  The application is designed for elderly users (60+) to perform standardized fitness
+  assessments with AI-powered movement tracking and automated scoring.

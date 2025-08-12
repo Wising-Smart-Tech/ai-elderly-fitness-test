@@ -453,7 +453,7 @@ class TestService {
   calculateFallRisk(results, age) {
     // Focus on balance and strength tests for fall risk
     const balanceTests = results.filter(
-      (r) => r.name === "single_leg_stand" || r.name === "8ft_up_go"
+      (r) => r.name === "8ft_up_go"
     );
 
     const strengthTests = results.filter((r) => r.name === "chair_stand");
