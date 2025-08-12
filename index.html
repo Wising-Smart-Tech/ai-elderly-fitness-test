@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高齡者體適能測試系統</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft JhengHei', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .header {
+            color: white;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .step {
+            display: none;
+        }
+
+        .step.active {
+            display: block;
+        }
+
+        .step-indicator {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 30px;
+            gap: 10px;
+        }
+
+        .step-dot {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #ddd;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .step-dot.active {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            transform: scale(1.2);
+        }
+
+        .step-dot.completed {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+        }
+
+        /* User Info Form Styles */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        /* Camera and Test Styles */
+        .camera-container {
+            position: relative;
+            display: flex;
+            justify-content: center;
+            margin-bottom: 30px;
+        }
+
+        #videoElement {
+            width: 640px;
+            height: 480px;
+            border-radius: 15px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+
+        #canvasElement {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 640px;
+            height: 480px;
+            pointer-events: none;
+            border-radius: 15px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .stat-value {
+            font-size: 3rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .stat-label {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        /* Button Styles */
+        .btn {
+            padding: 15px 30px;
+            font-size: 1.1rem;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+            margin: 5px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(45deg, #f44336, #da190b);
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        /* Report Styles */
+        .report {
+            text-align: center;
+            padding: 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 15px;
+            margin-top: 20px;
+        }
+
+        .user-info-summary {
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .performance-analysis {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .analysis-card {
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 10px;
+        }
+
+        .score-badge {
+            display: inline-block;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-weight: bold;
+            margin: 10px 5px;
+            color: white;
+        }
+
+        .score-excellent { background: #4CAF50; }
+        .score-good { background: #8BC34A; }
+        .score-average { background: #FFC107; color: #333; }
+        .score-fair { background: #FF9800; }
+        .score-poor { background: #F44336; }
+
+        .instructions {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border: 1px solid #f5c6cb;
+            display: none;
+        }
+
+        #spinner {
+            display: none;
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            #videoElement, #canvasElement {
+                width: 100%;
+                max-width: 480px;
+                height: auto;
+            }
+            
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+            
+            .performance-analysis {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>高齡者體適能評估系統</h1>
+        <p>專業的體適能測試與分析平台</p>
+    </div>
+
+    <div class="container">
+        <!-- Step Indicator -->
+        <div class="step-indicator">
+            <div class="step-dot active" id="step1-dot">1</div>
+            <div class="step-dot" id="step2-dot">2</div>
+            <div class="step-dot" id="step3-dot">3</div>
+        </div>
+
+        <!-- Step 1: User Information -->
+        <div class="step active" id="step1">
+            <h2 style="text-align: center; margin-bottom: 30px; color: #333;">📝 個人資料登記</h2>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="userName">姓名 *</label>
+                    <input type="text" id="userName" required placeholder="請輸入您的姓名">
+                </div>
+                <div class="form-group">
+                    <label for="userGender">性別 *</label>
+                    <select id="userGender" required>
+                        <option value="">請選擇性別</option>
+                        <option value="male">男性</option>
+                        <option value="female">女性</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="userBirthday">生日 *</label>
+                    <input type="date" id="userBirthday" required>
+                </div>
+                <div class="form-group">
+                    <label for="userHeight">身高 (公分) *</label>
+                    <input type="number" id="userHeight" required placeholder="例：165" min="100" max="250">
+                </div>
+                <div class="form-group">
+                    <label for="userWeight">體重 (公斤) *</label>
+                    <input type="number" id="userWeight" required placeholder="例：65" min="30" max="200" step="0.1">
+                </div>
+            </div>
+
+            <div class="controls">
+                <button class="btn btn-primary" onclick="proceedToTest()">繼續測試</button>
+            </div>
+        </div>
+
+        <!-- Step 2: Fitness Test -->
+        <div class="step" id="step2">
+            <h2 style="text-align: center; margin-bottom: 20px; color: #333;">🏃‍♂️ 椅子坐立測試</h2>
+            
+            <div class="instructions">
+                <h3>📋 測試說明</h3>
+                <ul>
+                    <li>請坐在椅子上，雙腳平放地面，雙手交叉抱胸</li>
+                    <li>測試開始後，請在30秒內盡可能多次完整坐立</li>
+                    <li>確保每次站起時膝蓋完全伸直</li>
+                    <li>系統會自動計算您的完成次數</li>
+                </ul>
+            </div>
+
+            <div class="error-message" id="errorMessage">
+                攝影機無法啟動，請確認瀏覽器權限設定
+            </div>
+
+            <div class="camera-container">
+                <video id="videoElement" autoplay muted playsinline></video>
+                <canvas id="canvasElement"></canvas>
+                <div id="spinner"></div>
+            </div>
+
+            <div class="controls">
+                <button id="startBtn" class="btn btn-primary">開始測試</button>
+                <button id="stopBtn" class="btn btn-secondary" style="display: none;">停止測試</button>
+                <button id="resetBtn" class="btn btn-secondary">重置</button>
+                <button class="btn btn-secondary" onclick="goToStep(1)">返回資料填寫</button>
+            </div>
+
+            <div class="stats">
+                <div class="stat-card" style="background: linear-gradient(45deg, #ff6b6b, #ff5252);">
+                    <div class="stat-value" id="timeLeft">30</div>
+                    <div class="stat-label">剩餘秒數</div>
+                </div>
+                <div class="stat-card" style="background: linear-gradient(45deg, #4ecdc4, #44a08d);">
+                    <div class="stat-value" id="repCount">0</div>
+                    <div class="stat-label">完成次數</div>
+                </div>
+                <div class="stat-card" style="background: linear-gradient(45deg, #feca57, #ff9ff3);">
+                    <div class="stat-value" id="currentStatus">待機</div>
+                    <div class="stat-label">目前狀態</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 3: Results Report -->
+        <div class="step" id="step3">
+            <div class="report">
+                <h2>🎉 測試完成報告</h2>
+                
+                <div class="user-info-summary" id="userSummary">
+                    <!-- User info will be populated here -->
+                </div>
+
+                <div style="font-size: 4rem; font-weight: bold; margin: 20px 0; text-shadow: 2px 2px 4px rgba(0,0,0,0.3);" id="finalScore">
+                    0
+                </div>
+                <p style="font-size: 1.2rem; margin-bottom: 30px;">30秒椅子坐立完成次數</p>
+
+                <div class="performance-analysis">
+                    <div class="analysis-card">
+                        <h3>📊 年齡組別表現</h3>
+                        <div id="ageGroupAnalysis">
+                            <!-- Age group analysis will be populated here -->
+                        </div>
+                    </div>
+                    <div class="analysis-card">
+                        <h3>💪 體能評級</h3>
+                        <div id="fitnessLevel">
+                            <!-- Fitness level will be populated here -->
+                        </div>
+                    </div>
+                    <div class="analysis-card">
+                        <h3>🏥 健康指標</h3>
+                        <div id="healthMetrics">
+                            <!-- Health metrics will be populated here -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="controls">
+                    <button class="btn btn-primary" onclick="goToStep(1)">重新測試</button>
+                    <button class="btn btn-secondary" onclick="printReport()">列印報告</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let pose;
+        let camera;
+        let isTestRunning = false;
+        let timer = 30;
+        let repCount = 0;
+        let timerInterval;
+        let lastHipY = 0;
+        let isStanding = false;
+        let lastStateChange = 0;
+        let isInitialized = false;
+
+        // User data
+        let userData = {};
+
+        // Age-gender scoring tables (based on the document)
+        const scoringTables = {
+            male: {
+                "65-69": { poor: [0, 12], fair: [13, 16], average: [17, 19], good: [20, 22], excellent: [23, 100] },
+                "70-74": { poor: [0, 10], fair: [11, 15], average: [16, 18], good: [19, 20], excellent: [21, 100] },
+                "75-79": { poor: [0, 9], fair: [10, 13], average: [14, 18], good: [19, 22], excellent: [23, 100] },
+                "80-84": { poor: [0, 7], fair: [8, 12], average: [13, 16], good: [17, 19], excellent: [20, 100] },
+                "85-89": { poor: [0, 4], fair: [5, 10], average: [11, 14], good: [15, 15], excellent: [16, 100] },
+                "90+": { poor: [0, 3], fair: [4, 6], average: [7, 12], good: [13, 12], excellent: [13, 100] }
+            },
+            female: {
+                "65-69": { poor: [0, 9], fair: [10, 15], average: [16, 18], good: [19, 21], excellent: [22, 100] },
+                "70-74": { poor: [0, 9], fair: [10, 14], average: [15, 17], good: [18, 20], excellent: [21, 100] },
+                "75-79": { poor: [0, 6], fair: [7, 13], average: [14, 17], good: [18, 19], excellent: [20, 100] },
+                "80-84": { poor: [0, 6], fair: [7, 10], average: [11, 13], good: [14, 16], excellent: [17, 100] },
+                "85-89": { poor: [0, 4], fair: [5, 9], average: [10, 12], good: [13, 14], excellent: [15, 100] },
+                "90+": { poor: [0, 4], fair: [5, 7], average: [8, 11], good: [12, 15], excellent: [16, 100] }
+            }
+        };
+
+        // DOM elements
+        const videoElement = document.getElementById('videoElement');
+        const canvasElement = document.getElementById('canvasElement');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const timeLeft = document.getElementById('timeLeft');
+        const repCountElement = document.getElementById('repCount');
+        const currentStatus = document.getElementById('currentStatus');
+        const finalScore = document.getElementById('finalScore');
+        const spinner = document.getElementById('spinner');
+        const errorMessage = document.getElementById('errorMessage');
+
+        // Step navigation
+        function goToStep(stepNumber) {
+            // Hide all steps
+            document.querySelectorAll('.step').forEach(step => {
+                step.classList.remove('active');
+            });
+            
+            // Show target step
+            document.getElementById(`step${stepNumber}`).classList.add('active');
+            
+            // Update step indicators
+            document.querySelectorAll('.step-dot').forEach((dot, index) => {
+                dot.classList.remove('active', 'completed');
+                if (index + 1 === stepNumber) {
+                    dot.classList.add('active');
+                } else if (index + 1 < stepNumber) {
+                    dot.classList.add('completed');
+                }
+            });
+
+            // Initialize camera when going to step 2
+            if (stepNumber === 2 && !isInitialized) {
+                initializePose();
+                initializeCamera();
+            }
+        }
+
+        // Validate and proceed to test
+        function proceedToTest() {
+            // Get form data
+            const name = document.getElementById('userName').value.trim();
+            const gender = document.getElementById('userGender').value;
+            const birthday = document.getElementById('userBirthday').value;
+            const height = parseFloat(document.getElementById('userHeight').value);
+            const weight = parseFloat(document.getElementById('userWeight').value);
+
+            // Validation
+            if (!name || !gender || !birthday || !height || !weight) {
+                alert('請填寫所有必填欄位');
+                return;
+            }
+
+            if (height < 100 || height > 250) {
+                alert('請輸入合理的身高範圍 (100-250公分)');
+                return;
+            }
+
+            if (weight < 30 || weight > 200) {
+                alert('請輸入合理的體重範圍 (30-200公斤)');
+                return;
+            }
+
+            // Calculate age
+            const birthDate = new Date(birthday);
+            const today = new Date();
+            let age = today.getFullYear() - birthDate.getFullYear();
+            const monthDiff = today.getMonth() - birthDate.getMonth();
+            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                age--;
+            }
+
+            if (age < 65) {
+                alert('此測試適用於65歲以上長者');
+                return;
+            }
+
+            // Calculate BMI
+            const bmi = weight / ((height / 100) ** 2);
+
+            // Store user data
+            userData = {
+                name,
+                gender,
+                birthday,
+                age,
+                height,
+                weight,
+                bmi: bmi.toFixed(1)
+            };
+
+            // Proceed to test
+            goToStep(2);
+        }
+
+        // Initialize MediaPipe Pose
+        function initializePose() {
+            pose = new Pose({
+                locateFile: (file) => {
+                    return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
+                }
+            });
+
+            pose.setOptions({
+                modelComplexity: 1,
+                smoothLandmarks: true,
+                enableSegmentation: false,
+                smoothSegmentation: false,
+                minDetectionConfidence: 0.5,
+                minTrackingConfidence: 0.5
+            });
+
+            pose.onResults(onResults);
+        }
+
+        // Handle pose detection results
+        function onResults(results) {
+            const canvasCtx = canvasElement.getContext('2d');
+            
+            canvasCtx.save();
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+            canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+
+            if (results.poseLandmarks) {
+                drawConnectors(canvasCtx, results.poseLandmarks, POSE_CONNECTIONS, {color: '#00FF00', lineWidth: 4});
+                drawLandmarks(canvasCtx, results.poseLandmarks, {color: '#FF0000', lineWidth: 2});
+
+                if (isTestRunning) {
+                    detectSitStand(results.poseLandmarks);
+                }
+            }
+
+            canvasCtx.restore();
+        }
+
+        // Detect sit-to-stand motion
+        function detectSitStand(landmarks) {
+            const now = Date.now();
+            
+            const leftHip = landmarks[23];
+            const rightHip = landmarks[24];
+            const currentHipY = (leftHip.y + rightHip.y) / 2;
+
+            if (lastHipY === 0) {
+                lastHipY = currentHipY;
+                return;
+            }
+
+            const movementThreshold = 0.08;
+            const timeSinceLastChange = now - lastStateChange;
+
+            if (!isStanding && (lastHipY - currentHipY) > movementThreshold && timeSinceLastChange > 1000) {
+                isStanding = true;
+                lastStateChange = now;
+                currentStatus.textContent = '站立';
+            }
+            else if (isStanding && (currentHipY - lastHipY) > movementThreshold && timeSinceLastChange > 1000) {
+                isStanding = false;
+                lastStateChange = now;
+                repCount++;
+                repCountElement.textContent = repCount;
+                currentStatus.textContent = '坐下';
+                
+                repCountElement.style.transform = 'scale(1.2)';
+                setTimeout(() => {
+                    repCountElement.style.transform = 'scale(1)';
+                }, 200);
+            }
+
+            lastHipY = currentHipY;
+        }
+
+        // Initialize camera
+        async function initializeCamera() {
+            try {
+                spinner.style.display = 'block';
+                errorMessage.style.display = 'none';
+
+                camera = new Camera(videoElement, {
+                    onFrame: async () => {
+                        if (pose && isInitialized) {
+                            await pose.send({image: videoElement});
+                        }
+                    },
+                    width: 640,
+                    height: 480
+                });
+
+                await camera.start();
+                
+                canvasElement.width = 640;
+                canvasElement.height = 480;
+                
+                isInitialized = true;
+                spinner.style.display = 'none';
+                currentStatus.textContent = '準備就緒';
+                
+            } catch (error) {
+                console.error('Camera initialization error:', error);
+                spinner.style.display = 'none';
+                errorMessage.style.display = 'block';
+                currentStatus.textContent = '攝影機錯誤';
+            }
+        }
+
+        // Start test
+        function startTest() {
+            if (!isInitialized) {
+                alert('請等待攝影機初始化完成');
+                return;
+            }
+
+            isTestRunning = true;
+            timer = 30;
+            repCount = 0;
+            lastHipY = 0;
+            isStanding = false;
+            lastStateChange = 0;
+
+            repCountElement.textContent = '0';
+            currentStatus.textContent = '測試中';
+
+            startBtn.style.display = 'none';
+            stopBtn.style.display = 'inline-block';
+
+            timerInterval = setInterval(() => {
+                timer--;
+                timeLeft.textContent = timer;
+
+                if (timer <= 0) {
+                    stopTest();
+                }
+            }, 1000);
+        }
+
+        // Stop test
+        function stopTest() {
+            isTestRunning = false;
+            clearInterval(timerInterval);
+
+            startBtn.style.display = 'inline-block';
+            stopBtn.style.display = 'none';
+
+            currentStatus.textContent = '測試完成';
+            
+            // Generate report and go to step 3
+            generateReport();
+            goToStep(3);
+        }
+
+        // Reset test
+        function resetTest() {
+            isTestRunning = false;
+            clearInterval(timerInterval);
+            
+            timer = 30;
+            repCount = 0;
+            lastHipY = 0;
+            isStanding = false;
+            lastStateChange = 0;
+
+            timeLeft.textContent = '30';
+            repCountElement.textContent = '0';
+            currentStatus.textContent = '準備就緒';
+            
+            startBtn.style.display = 'inline-block';
+            stopBtn.style.display = 'none';
+        }
+
+        // Generate report
+        function generateReport() {
+            // Update final score
+            finalScore.textContent = repCount;
+
+            // Generate user summary
+            const userSummary = document.getElementById('userSummary');
+            userSummary.innerHTML = `
+                <h3>👤 個人資料</h3>
+                <p><strong>姓名：</strong>${userData.name} | <strong>性別：</strong>${userData.gender === 'male' ? '男性' : '女性'} | <strong>年齡：</strong>${userData.age}歲</p>
+                <p><strong>身高：</strong>${userData.height}公分 | <strong>體重：</strong>${userData.weight}公斤 | <strong>BMI：</strong>${userData.bmi}</p>
+            `;
+
+            // Age group analysis
+            const ageGroupAnalysis = document.getElementById('ageGroupAnalysis');
+            const ageGroup = getAgeGroup(userData.age);
+            const performanceLevel = getPerformanceLevel(userData.gender, ageGroup, repCount);
+            
+            ageGroupAnalysis.innerHTML = `
+                <p><strong>年齡組別：</strong>${ageGroup}歲</p>
+                <p><strong>您的成績：</strong>${repCount}次</p>
+                <div class="score-badge score-${performanceLevel.toLowerCase()}">${getPerformanceLevelChinese(performanceLevel)}</div>
+            `;
+
+            // Fitness level
+            const fitnessLevel = document.getElementById('fitnessLevel');
+            const recommendations = getFitnessRecommendations(performanceLevel, userData.age);
+            
+            fitnessLevel.innerHTML = `
+                <p><strong>體能等級：</strong><span class="score-badge score-${performanceLevel.toLowerCase()}">${getPerformanceLevelChinese(performanceLevel)}</span></p>
+                <p><strong>建議：</strong>${recommendations}</p>
+            `;
+
+            // Health metrics
+            const healthMetrics = document.getElementById('healthMetrics');
+            const bmiStatus = getBMIStatus(userData.bmi);
+            
+            healthMetrics.innerHTML = `
+                <p><strong>BMI狀態：</strong>${bmiStatus}</p>
+                <p><strong>下肢肌耐力：</strong>${getMusclePowerAssessment(performanceLevel)}</p>
+                <p><strong>跌倒風險：</strong>${getFallRiskAssessment(performanceLevel)}</p>
+            `;
+        }
+
+        // Helper functions
+        function getAgeGroup(age) {
+            if (age >= 90) return "90+";
+            if (age >= 85) return "85-89";
+            if (age >= 80) return "80-84";
+            if (age >= 75) return "75-79";
+            if (age >= 70) return "70-74";
+            return "65-69";
+        }
+
+        function getPerformanceLevel(gender, ageGroup, score) {
+            const table = scoringTables[gender][ageGroup];
+            
+            for (const [level, range] of Object.entries(table)) {
+                if (score >= range[0] && score <= range[1]) {
+                    return level;
+                }
+            }
+            return 'poor';
+        }
+
+        function getPerformanceLevelChinese(level) {
+            const translations = {
+                'excellent': '很好',
+                'good': '尚好',
+                'average': '普通',
+                'fair': '稍差',
+                'poor': '不好'
+            };
+            return translations[level] || '未知';
+        }
+
+        function getFitnessRecommendations(level, age) {
+            const recommendations = {
+                'excellent': '您的體能狀況非常優秀！請繼續保持目前的運動習慣。',
+                'good': '您的體能狀況良好，建議維持規律運動，可適度增加運動強度。',
+                'average': '您的體能狀況屬於平均水準，建議增加下肢肌力訓練。',
+                'fair': '建議加強下肢肌力練習，每週進行3-4次輕度阻力訓練。',
+                'poor': '建議諮詢醫師或物理治療師，制定個人化運動計畫。'
+            };
+            return recommendations[level] || '請諮詢專業人員。';
+        }
+
+        function getBMIStatus(bmi) {
+            if (bmi < 18.5) return '體重過輕';
+            if (bmi < 24) return '體重正常';
+            if (bmi < 27) return '體重過重';
+            if (bmi < 30) return '輕度肥胖';
+            if (bmi < 35) return '中度肥胖';
+            return '重度肥胖';
+        }
+
+        function getMusclePowerAssessment(level) {
+            const assessments = {
+                'excellent': '優秀',
+                'good': '良好',
+                'average': '普通',
+                'fair': '需改善',
+                'poor': '較弱'
+            };
+            return assessments[level] || '需評估';
+        }
+
+        function getFallRiskAssessment(level) {
+            const risks = {
+                'excellent': '低風險',
+                'good': '低風險',
+                'average': '中等風險',
+                'fair': '較高風險',
+                'poor': '高風險'
+            };
+            return risks[level] || '需評估';
+        }
+
+        function printReport() {
+            window.print();
+        }
+
+        // Event listeners
+        startBtn.addEventListener('click', startTest);
+        stopBtn.addEventListener('click', stopTest);
+        resetBtn.addEventListener('click', resetTest);
+
+        // Handle page visibility change
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden && isTestRunning) {
+                stopTest();
+            }
+        });
+
+        // Initialize
+        window.addEventListener('load', () => {
+            // Set max date for birthday to today
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('userBirthday').max = today;
+        });
+    </script>
+</body>
+</html>
