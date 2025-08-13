@@ -7,20 +7,22 @@ import { AuthProvider } from './contexts/AuthContext';
 import { TestProvider } from './contexts/TestContext';
 
 // Components
-import Layout from './components/Layout';
-import PrivateRoute from './components/PrivateRoute';
+import Layout from './components/Layout.jsx';
+import PrivateRoute from './components/PrivateRoute.jsx';
+import ProtectedRoute from './components/ProtectedRoute.jsx';
 
 // Pages
-import Home from './pages/Home';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import Dashboard from './pages/Dashboard';
-import TestPage from './pages/TestPage';
-import Results from './pages/Results';
-import Profile from './pages/Profile';
+import Home from './pages/Home.jsx';
+import Login from './pages/Login.jsx';
+import Register from './pages/Register.jsx';
+import Dashboard from './pages/Dashboard.jsx';
+import TestPage from './pages/TestPage.jsx';
+import Results from './pages/Results.jsx';
+import Profile from './pages/Profile.jsx';
+import AdminDashboard from './pages/AdminDashboard.jsx';
 
 // Styles
-import './index.css';
+import './styles/index.css';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -44,13 +46,17 @@ function App() {
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
                 
-                {/* Protected routes */}
+                {/* Protected routes - Elderly Users */}
+                <Route path="/dashboard" element={<ProtectedRoute allowedRoles={['elderly_user']}><Dashboard /></ProtectedRoute>} />
                 <Route path="/app" element={<PrivateRoute><Layout /></PrivateRoute>}>
                   <Route index element={<Dashboard />} />
                   <Route path="test/:testType" element={<TestPage />} />
                   <Route path="results" element={<Results />} />
                   <Route path="profile" element={<Profile />} />
                 </Route>
+                
+                {/* Protected routes - Admin */}
+                <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />
               </Routes>
               
               <Toaster

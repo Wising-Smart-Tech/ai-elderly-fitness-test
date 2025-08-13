@@ -37,6 +37,24 @@ const { validateRequest } = require("../middleware/validation");
  *           description: Raw pose detection data
  */
 
+// Add simplified results endpoint for current user
+router.get("/results", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    // For now, return empty results
+    res.json({
+      success: true,
+      results: []
+    });
+  } catch (error) {
+    console.error('Error fetching results:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to fetch results' 
+    });
+  }
+});
+
 /**
  * @swagger
  * /api/tests/types:
