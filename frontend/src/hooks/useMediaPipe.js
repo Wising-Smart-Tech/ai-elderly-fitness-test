@@ -2,7 +2,7 @@ import { useRef, useCallback, useEffect, useState } from 'react';
 import { Pose } from '@mediapipe/pose';
 import { Camera } from '@mediapipe/camera_utils';
 
-export const useMediaPipe = (testType = 'chair_stand') => {
+export const useMediaPipe = (testName = '') => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const poseRef = useRef(null);
@@ -10,60 +10,105 @@ export const useMediaPipe = (testType = 'chair_stand') => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [currentLandmarks, setCurrentLandmarks] = useState(null);
 
+  // Map test names to test types
+  const getTestType = (name) => {
+    const mapping = {
+      '椅子坐立測試': 'chair_stand',
+      '肱二頭肌手臂屈舉': 'arm_curl',
+      '抓背測驗': 'back_scratch',
+      '椅子坐姿體前彎': 'sit_and_reach',
+      '8英呎起身繞行': 'eight_foot_up_and_go',
+      '原地站立抬膝': 'step_in_place'
+    };
+    return mapping[name] || 'chair_stand';
+  };
+
+  const testType = getTestType(testName);
+
   // Define which landmarks to show for each test type
   const getRelevantConnections = (testType) => {
     const connections = {
       chair_stand: [
-        // Hip to knee connections
-        [23, 25], // left hip to left knee
-        [24, 26], // right hip to right knee
-        // Knee to ankle connections
-        [25, 27], // left knee to left ankle
-        [26, 28], // right knee to right ankle
-        // Hip connections
-        [23, 24], // left hip to right hip
-        // Ankle to foot connections
-        [27, 29], // left ankle to left heel
-        [27, 31], // left ankle to left foot index
-        [28, 30], // right ankle to right heel
-        [28, 32], // right ankle to right foot index
-      ],
-      arm_curl: [
-        // Shoulder to elbow connections
-        [11, 13], // left shoulder to left elbow
-        [12, 14], // right shoulder to right elbow
-        // Elbow to wrist connections
-        [13, 15], // left elbow to left wrist
-        [14, 16], // right elbow to right wrist
-      ],
-      back_scratch: [
-        // Upper body connections for flexibility
+        // Core body for stability
         [11, 12], // shoulders
-        [11, 13], [12, 14], // shoulder to elbow
-        [13, 15], [14, 16], // elbow to wrist
-      ],
-      sit_and_reach: [
-        // Lower body flexibility
-        [23, 24], // hips
-        [23, 25], [24, 26], // hip to knee
-        [25, 27], [26, 28], // knee to ankle
-        // Add hands for reaching
-        [15, 19], [16, 20], // wrist to pinky
-        [15, 17], [16, 18], // wrist to index
-      ],
-      eight_foot_up_and_go: [
-        // Full lower body for walking
-        [23, 24], // hips
+        [11, 23], [12, 24], // shoulder to hip
+        [23, 24], // hip connection
+        // Lower body focus
         [23, 25], [24, 26], // hip to knee
         [25, 27], [26, 28], // knee to ankle
         [27, 29], [28, 30], // ankle to heel
         [27, 31], [28, 32], // ankle to foot index
+        [29, 31], [30, 32], // heel to foot index
       ],
-      step_in_place: [
-        // Lower body for knee lifts
+      arm_curl: [
+        // Upper body focus
+        [11, 12], // shoulders
+        [11, 13], [12, 14], // shoulder to elbow
+        [13, 15], [14, 16], // elbow to wrist
+        // Add hand details for grip
+        [15, 17], [16, 18], // wrist to index
+        [15, 19], [16, 20], // wrist to pinky
+        [17, 19], [18, 20], // index to pinky
+        // Core for stability
+        [11, 23], [12, 24], // shoulder to hip
+      ],
+      back_scratch: [
+        // Full upper body for flexibility assessment
+        [11, 12], // shoulders
+        [11, 13], [12, 14], // shoulder to elbow
+        [13, 15], [14, 16], // elbow to wrist
+        // Hands
+        [15, 17], [16, 18], // wrist to index
+        [15, 19], [16, 20], // wrist to pinky
+        [15, 21], [16, 22], // wrist to thumb
+        // Core connection
+        [11, 23], [12, 24], // shoulder to hip
+        [23, 24], // hip connection
+      ],
+      sit_and_reach: [
+        // Core and spine
+        [11, 12], // shoulders
+        [11, 23], [12, 24], // shoulder to hip
         [23, 24], // hips
+        // Lower body for sitting position
         [23, 25], [24, 26], // hip to knee
         [25, 27], [26, 28], // knee to ankle
+        [27, 29], [28, 30], // ankle to heel
+        [27, 31], [28, 32], // ankle to foot index
+        // Arms and hands for reaching
+        [11, 13], [12, 14], // shoulder to elbow
+        [13, 15], [14, 16], // elbow to wrist
+        [15, 17], [16, 18], // wrist to index
+        [15, 19], [16, 20], // wrist to pinky
+      ],
+      eight_foot_up_and_go: [
+        // Full body for walking assessment
+        [11, 12], // shoulders
+        [11, 23], [12, 24], // shoulder to hip
+        [23, 24], // hips
+        // Full lower body
+        [23, 25], [24, 26], // hip to knee
+        [25, 27], [26, 28], // knee to ankle
+        [27, 29], [28, 30], // ankle to heel
+        [27, 31], [28, 32], // ankle to foot index
+        [29, 31], [30, 32], // heel to foot index
+        // Arms for balance
+        [11, 13], [12, 14], // shoulder to elbow
+        [13, 15], [14, 16], // elbow to wrist
+      ],
+      step_in_place: [
+        // Core for balance
+        [11, 12], // shoulders
+        [11, 23], [12, 24], // shoulder to hip
+        [23, 24], // hips
+        // Lower body focus for knee lifts
+        [23, 25], [24, 26], // hip to knee (key for this test)
+        [25, 27], [26, 28], // knee to ankle
+        [27, 29], [28, 30], // ankle to heel
+        [27, 31], [28, 32], // ankle to foot index
+        // Arms for balance
+        [11, 13], [12, 14], // shoulder to elbow
+        [13, 15], [14, 16], // elbow to wrist
       ]
     };
     return connections[testType] || connections.chair_stand;
@@ -72,12 +117,47 @@ export const useMediaPipe = (testType = 'chair_stand') => {
   // Define which landmarks to highlight for each test
   const getRelevantLandmarks = (testType) => {
     const landmarks = {
-      chair_stand: [23, 24, 25, 26, 27, 28, 29, 30, 31, 32], // hips, knees, ankles, feet
-      arm_curl: [11, 12, 13, 14, 15, 16], // shoulders, elbows, wrists
-      back_scratch: [11, 12, 13, 14, 15, 16], // upper body
-      sit_and_reach: [15, 16, 17, 18, 19, 20, 23, 24, 25, 26, 27, 28], // hands and lower body
-      eight_foot_up_and_go: [23, 24, 25, 26, 27, 28, 29, 30, 31, 32], // full lower body
-      step_in_place: [23, 24, 25, 26, 27, 28] // hips, knees, ankles
+      chair_stand: [
+        11, 12, // shoulders (for posture)
+        23, 24, // hips (key points)
+        25, 26, // knees (key points for angle)
+        27, 28, // ankles
+        29, 30, 31, 32 // feet
+      ],
+      arm_curl: [
+        11, 12, // shoulders (anchor points)
+        13, 14, // elbows (key points for angle)
+        15, 16, // wrists (movement points)
+        17, 18, 19, 20, 21, 22 // hand points
+      ],
+      back_scratch: [
+        11, 12, // shoulders
+        13, 14, // elbows
+        15, 16, // wrists (key measurement points)
+        17, 18, 19, 20, 21, 22, // hands
+        23, 24 // hips for reference
+      ],
+      sit_and_reach: [
+        11, 12, // shoulders
+        15, 16, 17, 18, 19, 20, // hands (reaching points)
+        23, 24, // hips (pivot points)
+        25, 26, // knees
+        27, 28, 29, 30, 31, 32 // ankles and feet (target points)
+      ],
+      eight_foot_up_and_go: [
+        11, 12, // shoulders (for balance)
+        13, 14, 15, 16, // arms
+        23, 24, // hips (center of movement)
+        25, 26, // knees
+        27, 28, 29, 30, 31, 32 // full lower body for walking
+      ],
+      step_in_place: [
+        11, 12, // shoulders (for balance)
+        13, 14, 15, 16, // arms
+        23, 24, // hips (reference for knee height)
+        25, 26, // knees (key measurement points)
+        27, 28, 29, 30, 31, 32 // ankles and feet
+      ]
     };
     return landmarks[testType] || landmarks.chair_stand;
   };
