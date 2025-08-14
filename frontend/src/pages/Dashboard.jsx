@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Dumbbell, Heart, TrendingUp, ClipboardList, Play, BarChart3, Activity, Timer, Target, LogOut } from 'lucide-react';
+import { Activity, TrendingUp, ClipboardList, Play, BarChart3, LogOut, User } from 'lucide-react';
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
@@ -38,14 +38,14 @@ const Dashboard = () => {
         <div className="grid md:grid-cols-3 gap-4 mb-8">
           <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-6 rounded-lg border border-blue-100 hover:shadow-lg transition-all">
             <div className="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-blue-400 to-cyan-400 rounded-lg flex items-center justify-center mb-4">
-              <Dumbbell className="w-6 h-6 text-white" />
+              <Activity className="w-6 h-6 text-white" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-800 mb-2">肌力測試</h3>
+            <h3 className="text-lg font-semibold text-gray-800 mb-2">高齡體適能檢測</h3>
             <p className="text-gray-600 text-sm mb-4">
-              測試您的上下肢肌力表現
+              完整的體適能評估測試
             </p>
             <Link
-              to="/test"
+              to="/app/test/chair-stand"
               className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-700 font-medium transition-colors"
             >
               <Play className="w-4 h-4" />
@@ -55,18 +55,18 @@ const Dashboard = () => {
 
           <div className="bg-gradient-to-br from-teal-50 to-cyan-50 p-6 rounded-lg border border-teal-100 hover:shadow-lg transition-all">
             <div className="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-teal-400 to-cyan-400 rounded-lg flex items-center justify-center mb-4">
-              <Heart className="w-6 h-6 text-white" />
+              <User className="w-6 h-6 text-white" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-800 mb-2">平衡測試</h3>
+            <h3 className="text-lg font-semibold text-gray-800 mb-2">個人檔案</h3>
             <p className="text-gray-600 text-sm mb-4">
-              評估您的平衡與協調能力
+              管理您的個人資料與設定
             </p>
             <Link
-              to="/test"
+              to="/app/profile"
               className="inline-flex items-center gap-1 text-teal-600 hover:text-teal-700 font-medium transition-colors"
             >
-              <Play className="w-4 h-4" />
-              開始測試
+              <User className="w-4 h-4" />
+              查看檔案
             </Link>
           </div>
 
@@ -79,34 +79,11 @@ const Dashboard = () => {
               檢視您的歷史測試記錄
             </p>
             <Link
-              to="/results"
+              to="/app/results"
               className="inline-flex items-center gap-1 text-cyan-600 hover:text-cyan-700 font-medium transition-colors"
             >
               <TrendingUp className="w-4 h-4" />
               查看記錄
-            </Link>
-          </div>
-        </div>
-
-        <div className="space-y-3 mb-8">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
-            <Target className="w-5 h-5 text-teal-500" />
-            快速開始測試
-          </h2>
-          <div className="grid md:grid-cols-2 gap-3">
-            <Link
-              to="/test"
-              className="flex items-center justify-center gap-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white py-3 rounded-lg font-medium hover:from-blue-600 hover:to-cyan-600 transition-all transform hover:scale-[1.02] no-underline shadow-lg"
-            >
-              <Timer className="w-4 h-4" />
-              椅子坐立測試
-            </Link>
-            <Link
-              to="/test"
-              className="flex items-center justify-center gap-2 bg-gradient-to-r from-teal-500 to-cyan-500 text-white py-3 rounded-lg font-medium hover:from-teal-600 hover:to-cyan-600 transition-all transform hover:scale-[1.02] no-underline shadow-lg"
-            >
-              <Dumbbell className="w-4 h-4" />
-              手臂彎舉測試
             </Link>
           </div>
         </div>
@@ -127,7 +104,7 @@ const Dashboard = () => {
 
         <div className="mt-8 pt-6 border-t border-gray-200">
           <p className="text-center text-xs text-gray-500">
-            © 2024 AI 高齡體適能檢測系統
+            © 2025 AI 高齡體適能檢測系統
           </p>
         </div>
       </div>

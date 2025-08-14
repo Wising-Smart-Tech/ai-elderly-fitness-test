@@ -1,6 +1,6 @@
 // src/services/testService.js
 const { query, transaction } = require("../config/database");
-const { logger } = require("../utils/logger");
+const logger = require("../utils/logger");
 const { AppError } = require("../utils/errors");
 
 class TestService {
@@ -528,24 +528,24 @@ class TestService {
           break;
       }
 
-      // Save recommendations to database
-      for (const rec of recommendations) {
-        await query(
-          `
-                    INSERT INTO fitness_recommendations 
-                    (user_id, test_result_id, recommendation_type, title, description, priority)
-                    VALUES ($1, $2, $3, $4, $5, $6)
-                `,
-          [
-            testResult.user_id,
-            testResult.id,
-            rec.type,
-            rec.title,
-            rec.description,
-            rec.priority,
-          ]
-        );
-      }
+      // Save recommendations to database - commented out as table doesn't exist yet
+      // for (const rec of recommendations) {
+      //   await query(
+      //     `
+      //               INSERT INTO fitness_recommendations 
+      //               (user_id, test_result_id, recommendation_type, title, description, priority)
+      //               VALUES ($1, $2, $3, $4, $5, $6)
+      //           `,
+      //     [
+      //       testResult.user_id,
+      //       testResult.id,
+      //       rec.type,
+      //       rec.title,
+      //       rec.description,
+      //       rec.priority,
+      //     ]
+      //   );
+      // }
 
       return recommendations;
     } catch (error) {

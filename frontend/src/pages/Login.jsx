@@ -16,7 +16,7 @@ const Login = () => {
   useEffect(() => {
     // Clear any previous errors when component mounts
     clearError();
-  }, [clearError]);
+  }, []); // Empty dependency array to run only once on mount
 
   useEffect(() => {
     // Redirect if already authenticated

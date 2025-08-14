@@ -1,6 +1,6 @@
 // src/controllers/testController.js
 const testService = require("../services/testService");
-const { logger } = require("../utils/logger");
+const logger = require("../utils/logger");
 const { AppError } = require("../utils/errors");
 
 class TestController {
@@ -29,6 +29,7 @@ class TestController {
 
       res.status(201).json({
         success: true,
+        sessionId: session.id,
         data: session,
       });
     } catch (error) {

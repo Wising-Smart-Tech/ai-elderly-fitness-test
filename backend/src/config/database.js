@@ -1,6 +1,6 @@
 // src/config/database.js
 const { Pool } = require('pg');
-const { logger } = require('../utils/logger');
+const logger = require('../utils/logger');
 
 // Database configuration
 const dbConfig = {

@@ -10,7 +10,7 @@ const Home = () => {
             <Activity className="w-10 h-10 text-white" />
           </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-3">
-            AI 體適能檢測
+            AI 高齡體適能檢測
           </h1>
           <p className="text-gray-600">
             為長者提供專業的智能健康評估
@@ -23,7 +23,7 @@ const Home = () => {
               <Camera className="w-5 h-5 text-white" />
             </div>
             <div className="text-left">
-              <h3 className="font-semibold text-gray-800 text-sm">MediaPipe 技術</h3>
+              <h3 className="font-semibold text-gray-800 text-sm">AI 偵測技術</h3>
               <p className="text-xs text-gray-600">精準動作偵測與分析</p>
             </div>
           </div>
@@ -68,7 +68,7 @@ const Home = () => {
         
         <div className="mt-8 pt-6 border-t border-gray-200">
           <p className="text-center text-xs text-gray-500">
-            © 2024 AI 高齡體適能檢測系統
+            © 2025 AI 高齡體適能檢測系統
           </p>
         </div>
       </div>

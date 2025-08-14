@@ -1,395 +1,578 @@
-// src/pages/TestPage.jsx
-import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Square, RotateCcw, Timer, TrendingUp, User } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { useMediaPipe } from '../hooks/useMediaPipe';
+import { useChairStandDetection } from '../hooks/useChairStandDetection';
+import { Activity, Play, RotateCcw, ArrowLeft, Clock, TrendingUp, AlertCircle, CheckCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-import TestCamera from '../components/TestCamera';
-import { useChairStandDetection } from '../hooks/useChairStandDetection';
-import { useAuth } from '../contexts/AuthContext';
-import { useTest } from '../contexts/TestContext';
-
 const TestPage = () => {
-  const { testType } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const { startSession, completeSession, submitTestResult } = useTest();
+  const { user, token } = useAuth();
+  
+  // Test states
+  const [currentPhase, setCurrentPhase] = useState('instructions'); // instructions, test, results
+  const [sessionId, setSessionId] = useState(null);
+  const [testResults, setTestResults] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [cameraError, setCameraError] = useState(null);
+  const [isCameraLoading, setIsCameraLoading] = useState(false);
+  
+  // MediaPipe hooks
+  const { 
+    videoRef, 
+    canvasRef, 
+    initialize,
+    stop,
+    isInitialized,
+    currentLandmarks
+  } = useMediaPipe('chair_stand');
+  
+  // Chair stand detection
+  const { 
+    isStanding,
+    repCount,
+    startTest,
+    stopTest,
+    resetTest,
+    countdown,
+    timeRemaining,
+    testPhase
+  } = useChairStandDetection(currentLandmarks);
 
-  // Test state
-  const [isTestRunning, setIsTestRunning] = useState(false);
-  const [timer, setTimer] = useState(30);
-  const [landmarks, setLandmarks] = useState(null);
-  const [currentSession, setCurrentSession] = useState(null);
-  const [showResults, setShowResults] = useState(false);
-
-  // Detection hook
-  const { repCount, currentStatus, resetDetection } = useChairStandDetection(landmarks, isTestRunning);
-
-  const timerRef = useRef(null);
-  const testStartTime = useRef(null);
-
-  // Test configuration
-  const testConfig = {
-    chair_stand: {
-      name: '椅子坐立',
-      duration: 30,
-      unit: '次',
-      description: '30秒內盡可能多次完整坐立，評估下肢肌耐力',
-      instructions: [
-        '請坐在椅子上，雙腳平放地面',
-        '雙手交叉抱胸',
-        '測試開始後，在30秒內盡可能多次站起坐下',
-        '確保每次站起時膝蓋完全伸直',
-        '系統會自動計算完成次數'
-      ]
+  // Calculate user age
+  const calculateAge = useCallback(() => {
+    if (!user?.birthday) return 65;
+    const birthDate = new Date(user.birthday);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
     }
-  };
+    return age;
+  }, [user]);
 
-  const config = testConfig[testType];
-
-  useEffect(() => {
-    if (!config) {
-      toast.error('未知的測試類型');
-      navigate('/app');
-    }
-  }, [testType, config, navigate]);
-
+  // Cleanup camera when leaving test phase or unmounting
   useEffect(() => {
     return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
+      // Stop camera when component unmounts or phase changes away from test
+      if (isInitialized) {
+        stop();
       }
     };
-  }, []);
+  }, [isInitialized, stop]);
 
-  const startTest = async () => {
+  // Handle phase change
+  useEffect(() => {
+    // Stop camera when leaving test phase
+    if (currentPhase !== 'test' && isInitialized) {
+      stop();
+    }
+  }, [currentPhase, isInitialized, stop]);
+
+  // Start test session
+  const startTestSession = async () => {
     try {
-      // Start session
-      const session = await startSession(`${config.name}測試`);
-      setCurrentSession(session);
+      const response = await fetch('http://localhost:3000/api/tests/session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          notes: `Chair Stand Test - ${new Date().toLocaleDateString()}`
+        })
+      });
 
-      // Reset states
-      resetDetection();
-      setTimer(config.duration);
-      setIsTestRunning(true);
-      setShowResults(false);
-      testStartTime.current = Date.now();
-
-      // Start countdown
-      timerRef.current = setInterval(() => {
-        setTimer(prev => {
-          if (prev <= 1) {
-            stopTest();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-
-      toast.success('測試開始！');
+      if (!response.ok) throw new Error('Failed to start test session');
+      
+      const data = await response.json();
+      setSessionId(data.sessionId);
+      return data.sessionId;
     } catch (error) {
-      toast.error('無法開始測試');
+      console.error('Error starting session:', error);
+      toast.error('無法開始測試會話');
+      return null;
     }
   };
 
-  const stopTest = async () => {
-    try {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
+  // Start the test
+  const handleStartTest = async () => {
+    // Prevent multiple starts
+    if (testPhase !== 'ready' || isCameraLoading) {
+      return;
+    }
+    
+    // Initialize camera first if not already initialized
+    if (!isInitialized) {
+      setIsCameraLoading(true);
+      setCameraError(null);
+      try {
+        await initialize();
+        setIsCameraLoading(false);
+      } catch (err) {
+        console.error('Camera initialization failed:', err);
+        setCameraError('無法初始化攝影機，請確認攝影機權限');
+        toast.error('無法啟動攝影機，請檢查權限設定');
+        setIsCameraLoading(false);
+        return;
       }
+    }
 
-      setIsTestRunning(false);
+    // Create session
+    const newSessionId = await startTestSession();
+    if (!newSessionId) return;
 
-      if (currentSession) {
-        // Complete session
-        await completeSession(currentSession.id);
+    // Start test with countdown
+    startTest();
+  };
 
-        // Calculate user age
-        const birthDate = new Date(user.birthday);
-        const today = new Date();
-        let age = today.getFullYear() - birthDate.getFullYear();
-        const monthDiff = today.getMonth() - birthDate.getMonth();
-        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-          age--;
+  // Handle test completion
+  useEffect(() => {
+    const handleCompletion = async () => {
+      if (testPhase === 'completed' && sessionId) {
+        await submitTestResults();
+        // Stop camera after test completes
+        if (isInitialized) {
+          stop();
         }
+      }
+    };
+    handleCompletion();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [testPhase]);
 
-        // Submit result
-        const resultData = {
-          sessionId: currentSession.id,
-          testTypeId: 1, // chair_stand test
+  // Stop the test
+  const handleStopTest = async () => {
+    stopTest();
+    if (sessionId) {
+      await submitTestResults();
+    }
+    // Stop camera after test is stopped
+    if (isInitialized) {
+      stop();
+    }
+  };
+
+  // Submit test results to backend
+  const submitTestResults = async () => {
+    if (!sessionId || isSubmitting) return;
+
+    setIsSubmitting(true);
+    try {
+      const userAge = calculateAge();
+      
+      // Submit result
+      const response = await fetch('http://localhost:3000/api/tests/result', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          sessionId: sessionId,
+          testTypeId: 1, // Chair Stand Test ID
           score: repCount,
-          userAge: age,
-          userGender: user.gender,
+          userAge: userAge,
+          userGender: user?.gender || 'male',
           rawData: {
-            testDuration: config.duration,
-            actualDuration: Math.floor((Date.now() - testStartTime.current) / 1000),
-            repCount: repCount,
+            duration: 30,
             timestamp: new Date().toISOString()
           }
-        };
+        })
+      });
 
-        await submitTestResult(resultData);
-        setShowResults(true);
-        toast.success('測試完成！');
-      }
+      if (!response.ok) throw new Error('Failed to submit results');
+      
+      const data = await response.json();
+      
+      // Complete session
+      await fetch(`http://localhost:3000/api/tests/session/${sessionId}/complete`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      setTestResults({
+        score: repCount,
+        performanceLevel: data.data?.result?.performance_level || data.performanceLevel,
+        percentile: data.data?.result?.percentile || data.percentile,
+        age: userAge,
+        gender: user?.gender || 'male'
+      });
+
+      setCurrentPhase('results');
+      toast.success('測試完成！');
     } catch (error) {
-      toast.error('測試結束時發生錯誤');
+      console.error('Error submitting results:', error);
+      toast.error('提交結果時發生錯誤');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const resetTest = () => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-
-    setIsTestRunning(false);
-    setTimer(config.duration);
-    resetDetection();
-    setCurrentSession(null);
-    setShowResults(false);
-    testStartTime.current = null;
+  // Reset test
+  const handleReset = () => {
+    resetTest();
+    setCameraError(null);
   };
 
-  const getPerformanceLevel = (score, age, gender) => {
-    // Simplified scoring logic - you can expand this
-    const scoringTable = {
-      male: {
-        "65-69": { excellent: 23, good: 20, average: 17, fair: 13 },
-        "70-74": { excellent: 21, good: 19, average: 16, fair: 11 },
-        "75-79": { excellent: 23, good: 19, average: 14, fair: 10 },
-        "80+": { excellent: 20, good: 17, average: 13, fair: 8 }
-      },
-      female: {
-        "65-69": { excellent: 22, good: 19, average: 16, fair: 10 },
-        "70-74": { excellent: 21, good: 18, average: 15, fair: 10 },
-        "75-79": { excellent: 20, good: 18, average: 14, fair: 7 },
-        "80+": { excellent: 17, good: 14, average: 11, fair: 7 }
-      }
+  // Get performance level in Chinese
+  const getPerformanceLevelChinese = (level) => {
+    const translations = {
+      'excellent': '優秀',
+      'good': '良好',
+      'average': '普通',
+      'fair': '尚可',
+      'poor': '需改善'
     };
-
-    const ageGroup = age >= 80 ? "80+" : age >= 75 ? "75-79" : age >= 70 ? "70-74" : "65-69";
-    const thresholds = scoringTable[gender]?.[ageGroup];
-
-    if (!thresholds) return 'average';
-
-    if (score >= thresholds.excellent) return 'excellent';
-    if (score >= thresholds.good) return 'good';
-    if (score >= thresholds.average) return 'average';
-    if (score >= thresholds.fair) return 'fair';
-    return 'poor';
+    return translations[level] || '未知';
   };
 
-  const getLevelColor = (level) => {
+  // Get performance badge color
+  const getPerformanceBadgeColor = (level) => {
     const colors = {
-      excellent: 'text-green-600 bg-green-100',
-      good: 'text-blue-600 bg-blue-100',
-      average: 'text-yellow-600 bg-yellow-100',
-      fair: 'text-orange-600 bg-orange-100',
-      poor: 'text-red-600 bg-red-100'
+      'excellent': 'bg-green-500',
+      'good': 'bg-blue-500',
+      'average': 'bg-yellow-500',
+      'fair': 'bg-orange-500',
+      'poor': 'bg-red-500'
     };
-    return colors[level] || colors.average;
+    return colors[level] || 'bg-gray-500';
   };
 
-  const getLevelText = (level) => {
-    const texts = {
-      excellent: '很好',
-      good: '尚好',
-      average: '普通',
-      fair: '稍差',
-      poor: '不好'
+  // Get recommendations based on performance
+  const getRecommendations = (level) => {
+    const recommendations = {
+      'excellent': '您的下肢肌力表現優秀！請繼續保持目前的運動習慣。',
+      'good': '您的下肢肌力狀況良好，建議維持規律運動，可適度增加運動強度。',
+      'average': '您的下肢肌力屬於平均水準，建議增加下肢肌力訓練頻率。',
+      'fair': '建議加強下肢肌力練習，每週進行3-4次輕度阻力訓練。',
+      'poor': '建議諮詢醫師或物理治療師，制定個人化運動計畫來改善下肢肌力。'
     };
-    return texts[level] || '普通';
+    return recommendations[level] || '請諮詢專業人員。';
   };
-
-  if (!config) {
-    return null;
-  }
-
-  // Calculate performance if showing results
-  let performanceLevel = 'average';
-  if (showResults && user) {
-    const birthDate = new Date(user.birthday);
-    const age = Math.floor((Date.now() - birthDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
-    performanceLevel = getPerformanceLevel(repCount, age, user.gender);
-  }
 
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-6">
-      {/* Header */}
-      <div className="text-center">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">{config.name}測試</h1>
-        <p className="text-gray-600">{config.description}</p>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-blue-500 via-cyan-500 to-teal-500 p-4">
+      <div className="max-w-6xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-6">
+          <h1 className="text-3xl font-bold text-white mb-2">椅子坐立測試</h1>
+          <p className="text-white/90">30秒下肢肌力評估</p>
+        </div>
 
-      {/* Instructions */}
-      {!isTestRunning && !showResults && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-blue-50 border border-blue-200 rounded-lg p-6"
-        >
-          <h3 className="font-semibold text-blue-900 mb-3 flex items-center">
-            <User className="w-5 h-5 mr-2" />
-            測試說明
-          </h3>
-          <ul className="space-y-2 text-blue-800">
-            {config.instructions.map((instruction, index) => (
-              <li key={index} className="flex items-start">
-                <span className="bg-blue-200 text-blue-800 text-xs font-semibold px-2 py-1 rounded-full mr-3 mt-0.5">
-                  {index + 1}
-                </span>
-                {instruction}
-              </li>
-            ))}
-          </ul>
-        </motion.div>
-      )}
-
-      {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Camera Section */}
-        <div className="lg:col-span-2">
-          <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-            <div className="p-4 bg-gray-50 border-b">
-              <h3 className="font-semibold text-gray-900">測試區域</h3>
-            </div>
-            <div className="p-4">
-              <TestCamera
-                onLandmarksUpdate={setLandmarks}
-                className="w-full h-96"
-              />
-            </div>
+        {/* Phase Indicator */}
+        <div className="flex justify-center mb-8 gap-4">
+          <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${
+            currentPhase === 'instructions' ? 'bg-white text-blue-600' : 'bg-white/20 text-white'
+          }`}>
+            <div className="w-8 h-8 rounded-full bg-current opacity-20"></div>
+            <span className="font-medium">說明</span>
+          </div>
+          <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${
+            currentPhase === 'test' ? 'bg-white text-blue-600' : 'bg-white/20 text-white'
+          }`}>
+            <div className="w-8 h-8 rounded-full bg-current opacity-20"></div>
+            <span className="font-medium">測試</span>
+          </div>
+          <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${
+            currentPhase === 'results' ? 'bg-white text-blue-600' : 'bg-white/20 text-white'
+          }`}>
+            <div className="w-8 h-8 rounded-full bg-current opacity-20"></div>
+            <span className="font-medium">結果</span>
           </div>
         </div>
 
-        {/* Controls and Stats */}
-        <div className="space-y-6">
-          {/* Controls */}
-          <div className="bg-white rounded-lg shadow-lg p-6">
-            <h3 className="font-semibold text-gray-900 mb-4">測試控制</h3>
-            <div className="space-y-3">
-              {!isTestRunning ? (
+        {/* Main Content */}
+        <div className="bg-white/95 backdrop-blur rounded-2xl shadow-2xl p-8">
+          {/* Instructions Phase */}
+          {currentPhase === 'instructions' && (
+            <div className="space-y-6">
+              <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-6 rounded-lg border border-blue-100">
+                <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                  <AlertCircle className="w-6 h-6 text-blue-600" />
+                  測試說明
+                </h2>
+                <ul className="space-y-3 text-gray-700">
+                  <li className="flex items-start gap-2">
+                    <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+                    <span>請坐在椅子上，雙腳平放地面，與肩同寬</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+                    <span>雙手交叉抱胸，保持背部挺直</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+                    <span>測試開始後，在30秒內盡可能多次完整站立和坐下</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+                    <span>確保每次站起時膝蓋完全伸直，坐下時完全接觸椅面</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+                    <span>系統會自動偵測並計算您的完成次數</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="bg-gradient-to-br from-teal-50 to-cyan-50 p-6 rounded-lg border border-teal-100">
+                <h3 className="font-semibold text-gray-800 mb-2">準備事項</h3>
+                <p className="text-gray-600">
+                  請確保您的攝影機能清楚拍攝到您的全身動作，建議將攝影機放置在側面約2-3公尺處。
+                </p>
+              </div>
+
+              <div className="flex justify-center gap-4">
                 <button
-                  onClick={startTest}
-                  disabled={!landmarks}
-                  className="w-full flex items-center justify-center px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                  onClick={() => {
+                    if (isInitialized) {
+                      stop();
+                    }
+                    navigate('/app');
+                  }}
+                  className="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-all flex items-center gap-2"
                 >
-                  <Play className="w-5 h-5 mr-2" />
-                  開始測試
+                  <ArrowLeft className="w-5 h-5" />
+                  返回主頁
                 </button>
-              ) : (
                 <button
-                  onClick={stopTest}
-                  className="w-full flex items-center justify-center px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                  onClick={() => setCurrentPhase('test')}
+                  className="px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-lg font-medium hover:shadow-lg transition-all flex items-center gap-2"
                 >
-                  <Square className="w-5 h-5 mr-2" />
-                  停止測試
+                  開始準備
+                  <Play className="w-5 h-5" />
                 </button>
+              </div>
+            </div>
+          )}
+
+          {/* Test Phase */}
+          {currentPhase === 'test' && (
+            <div className="space-y-6">
+              {/* Camera Error */}
+              {cameraError && (
+                <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg">
+                  <p className="font-medium">攝影機錯誤</p>
+                  <p className="text-sm mt-1">{cameraError}</p>
+                </div>
               )}
-              
-              <button
-                onClick={resetTest}
-                className="w-full flex items-center justify-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-              >
-                <RotateCcw className="w-4 h-4 mr-2" />
-                重置
-              </button>
-            </div>
-          </div>
 
-          {/* Stats */}
-          <div className="space-y-4">
-            {/* Timer */}
-            <div className="bg-white rounded-lg shadow-lg p-6">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-600">剩餘時間</span>
-                <Timer className="w-4 h-4 text-gray-400" />
+              {/* Camera View */}
+              <div className="relative bg-gray-100 rounded-lg overflow-hidden" style={{ minHeight: '480px' }}>
+                <video
+                  ref={videoRef}
+                  className="w-full h-auto"
+                  style={{ display: 'none' }}
+                  autoPlay
+                  playsInline
+                />
+                <canvas
+                  ref={canvasRef}
+                  className="w-full h-full"
+                  style={{ display: isInitialized ? 'block' : 'none' }}
+                />
+                {!isInitialized && !isCameraLoading && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+                    <div className="text-center">
+                      <p className="text-gray-600 mb-2">請按下方「開始測試」按鈕啟動攝影機</p>
+                      <p className="text-gray-500 text-sm">首次使用需要允許攝影機權限</p>
+                    </div>
+                  </div>
+                )}
+                {isCameraLoading && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+                    <div className="text-center">
+                      <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                      <p className="text-gray-600">正在初始化攝影機...</p>
+                      <p className="text-gray-500 text-sm mt-2">請允許瀏覽器使用攝影機</p>
+                    </div>
+                  </div>
+                )}
+                {/* Countdown Display */}
+                {countdown > 0 && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-10 pointer-events-none">
+                    <div className="text-9xl font-bold text-white animate-pulse">
+                      {countdown}
+                    </div>
+                  </div>
+                )}
               </div>
-              <div className={`text-3xl font-bold ${timer <= 10 ? 'text-red-600' : 'text-blue-600'}`}>
-                {timer}
-              </div>
-              <div className="text-sm text-gray-500">秒</div>
-            </div>
 
-            {/* Rep Counter */}
-            <div className="bg-white rounded-lg shadow-lg p-6">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-600">完成次數</span>
-                <TrendingUp className="w-4 h-4 text-gray-400" />
+              {/* Control Buttons */}
+              <div className="flex justify-center gap-4">
+                {testPhase === 'ready' ? (
+                  <>
+                    <button
+                      onClick={() => {
+                        setCurrentPhase('instructions');
+                        if (isInitialized) {
+                          stop();
+                        }
+                      }}
+                      className="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-all flex items-center gap-2"
+                    >
+                      <ArrowLeft className="w-5 h-5" />
+                      返回說明
+                    </button>
+                    <button
+                      onClick={handleStartTest}
+                      disabled={isCameraLoading}
+                      className="px-6 py-3 bg-gradient-to-r from-green-500 to-teal-500 text-white rounded-lg font-medium hover:shadow-lg transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isCameraLoading ? (
+                        <>
+                          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          初始化攝影機...
+                        </>
+                      ) : (
+                        <>
+                          <Play className="w-5 h-5" />
+                          開始測試
+                        </>
+                      )}
+                    </button>
+                  </>
+                ) : testPhase === 'testing' ? (
+                  <>
+                    <button
+                      onClick={handleStopTest}
+                      className="px-6 py-3 bg-gradient-to-r from-red-500 to-orange-500 text-white rounded-lg font-medium hover:shadow-lg transition-all"
+                    >
+                      停止測試
+                    </button>
+                  </>
+                ) : testPhase === 'completed' ? (
+                  <button
+                    onClick={handleReset}
+                    className="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-all flex items-center gap-2"
+                  >
+                    <RotateCcw className="w-5 h-5" />
+                    重新測試
+                  </button>
+                ) : null}
               </div>
-              <motion.div
-                key={repCount}
-                initial={{ scale: 1.2 }}
-                animate={{ scale: 1 }}
-                className="text-3xl font-bold text-green-600"
-              >
-                {repCount}
-              </motion.div>
-              <div className="text-sm text-gray-500">次</div>
-            </div>
 
-            {/* Status */}
-            <div className="bg-white rounded-lg shadow-lg p-6">
-              <div className="text-sm font-medium text-gray-600 mb-2">目前狀態</div>
-              <div className="text-lg font-semibold text-purple-600">
-                {isTestRunning ? currentStatus : landmarks ? '準備就緒' : '等待攝影機'}
+              {/* Stats Display */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-gradient-to-br from-red-500 to-orange-500 p-6 rounded-lg text-white">
+                  <div className="flex items-center gap-3 mb-2">
+                    <Clock className="w-8 h-8" />
+                    <div className="text-3xl font-bold">{timeRemaining}</div>
+                  </div>
+                  <div className="text-white/90">剩餘秒數</div>
+                </div>
+
+                <div className="bg-gradient-to-br from-green-500 to-teal-500 p-6 rounded-lg text-white">
+                  <div className="flex items-center gap-3 mb-2">
+                    <TrendingUp className="w-8 h-8" />
+                    <div className="text-3xl font-bold">{repCount}</div>
+                  </div>
+                  <div className="text-white/90">完成次數</div>
+                </div>
+
+                <div className="bg-gradient-to-br from-blue-500 to-purple-500 p-6 rounded-lg text-white">
+                  <div className="flex items-center gap-3 mb-2">
+                    <Activity className="w-8 h-8" />
+                    <div className="text-2xl font-bold">{isStanding ? '站立' : '坐下'}</div>
+                  </div>
+                  <div className="text-white/90">目前狀態</div>
+                </div>
               </div>
             </div>
-          </div>
+          )}
+
+          {/* Results Phase */}
+          {currentPhase === 'results' && testResults && (
+            <div className="space-y-6">
+              <div className="text-center py-8">
+                <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-green-500 to-teal-500 rounded-full mb-4">
+                  <CheckCircle className="w-10 h-10 text-white" />
+                </div>
+                <h2 className="text-3xl font-bold text-gray-800 mb-2">測試完成！</h2>
+                <p className="text-gray-600">以下是您的測試結果分析</p>
+              </div>
+
+              {/* Score Display */}
+              <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-8 rounded-lg border border-blue-100 text-center">
+                <div className="text-5xl font-bold text-blue-600 mb-2">{testResults.score}</div>
+                <div className="text-gray-600 mb-4">30秒完成次數</div>
+                <div className={`inline-block px-4 py-2 rounded-full text-white font-medium ${getPerformanceBadgeColor(testResults.performanceLevel)}`}>
+                  {getPerformanceLevelChinese(testResults.performanceLevel)}
+                </div>
+              </div>
+
+              {/* Performance Analysis */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-gradient-to-br from-teal-50 to-cyan-50 p-6 rounded-lg border border-teal-100">
+                  <h3 className="font-semibold text-gray-800 mb-3">年齡組別表現</h3>
+                  <p className="text-gray-600 mb-2">
+                    年齡：{testResults.age}歲 | 性別：{testResults.gender === 'male' ? '男性' : '女性'}
+                  </p>
+                  <p className="text-gray-700">
+                    您在同年齡組中的表現為 <span className="font-semibold text-teal-600">{getPerformanceLevelChinese(testResults.performanceLevel)}</span>
+                  </p>
+                  {testResults.percentile && (
+                    <p className="text-gray-600 mt-2">
+                      超越了 <span className="font-semibold">{testResults.percentile}%</span> 的同齡人
+                    </p>
+                  )}
+                </div>
+
+                <div className="bg-gradient-to-br from-cyan-50 to-blue-50 p-6 rounded-lg border border-cyan-100">
+                  <h3 className="font-semibold text-gray-800 mb-3">健康建議</h3>
+                  <p className="text-gray-700">
+                    {getRecommendations(testResults.performanceLevel)}
+                  </p>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-center gap-4">
+                <button
+                  onClick={() => {
+                    if (isInitialized) {
+                      stop();
+                    }
+                    navigate('/app');
+                  }}
+                  className="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-all flex items-center gap-2"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                  返回主頁
+                </button>
+                <button
+                  onClick={() => {
+                    if (isInitialized) {
+                      stop();
+                    }
+                    navigate('/app/results');
+                  }}
+                  className="px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-lg font-medium hover:shadow-lg transition-all"
+                >
+                  查看歷史記錄
+                </button>
+                <button
+                  onClick={() => {
+                    setCurrentPhase('instructions');
+                    setTestResults(null);
+                    setSessionId(null);
+                    resetTest();
+                  }}
+                  className="px-6 py-3 bg-gradient-to-r from-green-500 to-teal-500 text-white rounded-lg font-medium hover:shadow-lg transition-all flex items-center gap-2"
+                >
+                  <RotateCcw className="w-5 h-5" />
+                  重新測試
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
-
-      {/* Results Modal */}
-      <AnimatePresence>
-        {showResults && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
-          >
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.8, opacity: 0 }}
-              className="bg-white rounded-lg max-w-md w-full p-6"
-            >
-              <div className="text-center">
-                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <TrendingUp className="w-8 h-8 text-green-600" />
-                </div>
-                
-                <h3 className="text-2xl font-bold text-gray-900 mb-2">測試完成！</h3>
-                
-                <div className="text-6xl font-bold text-blue-600 mb-2">{repCount}</div>
-                <p className="text-gray-600 mb-4">30秒完成次數</p>
-                
-                <div className={`inline-block px-4 py-2 rounded-full text-sm font-semibold ${getLevelColor(performanceLevel)}`}>
-                  體能等級：{getLevelText(performanceLevel)}
-                </div>
-                
-                <div className="mt-6 space-y-3">
-                  <button
-                    onClick={() => navigate('/app/results')}
-                    className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    查看詳細報告
-                  </button>
-                  <button
-                    onClick={() => setShowResults(false)}
-                    className="w-full px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-                  >
-                    繼續測試
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 };

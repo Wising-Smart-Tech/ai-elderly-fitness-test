@@ -875,7 +875,7 @@ const AdminDashboard = () => {
 
           <div className="mt-8 pt-6 border-t border-gray-200">
             <p className="text-center text-xs text-gray-500">
-              © 2024 AI 高齡體適能檢測系統 - 管理員控制台
+              © 2025 AI 高齡體適能檢測系統 - 管理員控制台
             </p>
           </div>
         </div>
