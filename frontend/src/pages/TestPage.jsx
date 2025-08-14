@@ -234,35 +234,30 @@ const TestPage = () => {
   // Get performance badge color
   const getPerformanceBadgeColor = (level) => {
     const colors = {
-      'excellent': 'bg-green-500',
-      'good': 'bg-blue-500',
-      'average': 'bg-yellow-500',
-      'fair': 'bg-orange-500',
-      'poor': 'bg-red-500'
+      'excellent': 'text-green-600',
+      'good': 'text-blue-600',
+      'average': 'text-yellow-600',
+      'fair': 'text-orange-600',
+      'poor': 'text-red-600'
     };
-    return colors[level] || 'bg-gray-500';
+    return colors[level] || 'text-gray-600';
   };
-
-  // Get recommendations based on performance
-  const getRecommendations = (level) => {
-    const recommendations = {
-      'excellent': '您的下肢肌力表現優秀！請繼續保持目前的運動習慣。',
-      'good': '您的下肢肌力狀況良好，建議維持規律運動，可適度增加運動強度。',
-      'average': '您的下肢肌力屬於平均水準，建議增加下肢肌力訓練頻率。',
-      'fair': '建議加強下肢肌力練習，每週進行3-4次輕度阻力訓練。',
-      'poor': '建議諮詢醫師或物理治療師，制定個人化運動計畫來改善下肢肌力。'
+  
+  // Get indicator position based on performance level
+  const getIndicatorPosition = (level) => {
+    const positions = {
+      'poor': '10%',      // Center of first segment (0-20%)
+      'fair': '30%',      // Center of second segment (20-40%)
+      'average': '50%',   // Center of third segment (40-60%)
+      'good': '70%',      // Center of fourth segment (60-80%)
+      'excellent': '90%'  // Center of fifth segment (80-100%)
     };
-    return recommendations[level] || '請諮詢專業人員。';
+    return positions[level] || '50%';
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-500 via-cyan-500 to-teal-500 p-4">
       <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-6">
-          <h1 className="text-3xl font-bold text-white mb-2">椅子坐立測試</h1>
-          <p className="text-white/90">30秒下肢肌力評估</p>
-        </div>
 
         {/* Phase Indicator */}
         <div className="flex justify-center mb-8 gap-4">
@@ -288,6 +283,12 @@ const TestPage = () => {
 
         {/* Main Content */}
         <div className="bg-white/95 backdrop-blur rounded-2xl shadow-2xl p-8">
+          {/* Title */}
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-gray-800 mb-2">椅子坐立測試</h1>
+            <p className="text-gray-600">30秒下肢肌力評估</p>
+          </div>
+
           {/* Instructions Phase */}
           {currentPhase === 'instructions' && (
             <div className="space-y-6">
@@ -489,45 +490,81 @@ const TestPage = () => {
           {/* Results Phase */}
           {currentPhase === 'results' && testResults && (
             <div className="space-y-6">
-              <div className="text-center py-8">
-                <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-green-500 to-teal-500 rounded-full mb-4">
-                  <CheckCircle className="w-10 h-10 text-white" />
+              {/* Main Score Card */}
+              <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-6 rounded-lg border border-blue-100">
+                <div className="text-center mb-6">
+                  <div className="flex items-baseline justify-center gap-2">
+                    <div className="text-6xl font-bold text-blue-600">{testResults.score}</div>
+                    <div className="text-2xl text-gray-600">次</div>
+                  </div>
                 </div>
-                <h2 className="text-3xl font-bold text-gray-800 mb-2">測試完成！</h2>
-                <p className="text-gray-600">以下是您的測試結果分析</p>
-              </div>
 
-              {/* Score Display */}
-              <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-8 rounded-lg border border-blue-100 text-center">
-                <div className="text-5xl font-bold text-blue-600 mb-2">{testResults.score}</div>
-                <div className="text-gray-600 mb-4">30秒完成次數</div>
-                <div className={`inline-block px-4 py-2 rounded-full text-white font-medium ${getPerformanceBadgeColor(testResults.performanceLevel)}`}>
-                  {getPerformanceLevelChinese(testResults.performanceLevel)}
-                </div>
-              </div>
-
-              {/* Performance Analysis */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-gradient-to-br from-teal-50 to-cyan-50 p-6 rounded-lg border border-teal-100">
-                  <h3 className="font-semibold text-gray-800 mb-3">年齡組別表現</h3>
-                  <p className="text-gray-600 mb-2">
-                    年齡：{testResults.age}歲 | 性別：{testResults.gender === 'male' ? '男性' : '女性'}
-                  </p>
-                  <p className="text-gray-700">
-                    您在同年齡組中的表現為 <span className="font-semibold text-teal-600">{getPerformanceLevelChinese(testResults.performanceLevel)}</span>
-                  </p>
-                  {testResults.percentile && (
-                    <p className="text-gray-600 mt-2">
-                      超越了 <span className="font-semibold">{testResults.percentile}%</span> 的同齡人
-                    </p>
+                {/* Performance Meter */}
+                <div className="mb-6">
+                  <div className="text-center mb-4">
+                    <span className="text-sm text-gray-600">表現等級：</span>
+                    <span className={`text-2xl font-bold ml-2 ${getPerformanceBadgeColor(testResults.performanceLevel)}`}>
+                      {getPerformanceLevelChinese(testResults.performanceLevel)}
+                    </span>
+                  </div>
+                  
+                  {/* Triangle Indicator Above Meter */}
+                  {testResults.performanceLevel && (
+                    <div className="relative h-8 mb-2">
+                      <div 
+                        className="absolute top-0"
+                        style={{ left: getIndicatorPosition(testResults.performanceLevel), transform: 'translateX(-50%)' }}
+                      >
+                        <div className="text-sm font-bold text-cyan-600 mb-1">
+                          {testResults.percentile}%
+                        </div>
+                        <svg width="24" height="16" viewBox="0 0 24 16" className="mx-auto">
+                          <defs>
+                            <linearGradient id="triangleGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                              <stop offset="0%" stopColor="#22d3ee" />
+                              <stop offset="100%" stopColor="#0ea5e9" />
+                            </linearGradient>
+                          </defs>
+                          <path d="M12 16 L0 0 L24 0 Z" fill="url(#triangleGradient)" />
+                        </svg>
+                      </div>
+                    </div>
                   )}
+                  
+                  <div className="relative h-12 bg-gray-200 rounded-full overflow-hidden shadow-inner">
+                    {/* 5 Level Segments with gradient colors */}
+                    <div className="absolute inset-0 flex">
+                      <div className="bg-gradient-to-r from-red-500 to-red-400 border-r border-white/50" style={{ width: '20%' }}></div>
+                      <div className="bg-gradient-to-r from-orange-500 to-orange-400 border-r border-white/50" style={{ width: '20%' }}></div>
+                      <div className="bg-gradient-to-r from-yellow-500 to-yellow-400 border-r border-white/50" style={{ width: '20%' }}></div>
+                      <div className="bg-gradient-to-r from-blue-500 to-blue-400 border-r border-white/50" style={{ width: '20%' }}></div>
+                      <div className="bg-gradient-to-r from-green-500 to-green-400" style={{ width: '20%' }}></div>
+                    </div>
+                    {/* Labels */}
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="text-center text-xs font-medium text-white drop-shadow" style={{ width: '20%' }}>需改善</div>
+                      <div className="text-center text-xs font-medium text-white drop-shadow" style={{ width: '20%' }}>尚可</div>
+                      <div className="text-center text-xs font-medium text-white drop-shadow" style={{ width: '20%' }}>普通</div>
+                      <div className="text-center text-xs font-medium text-white drop-shadow" style={{ width: '20%' }}>良好</div>
+                      <div className="text-center text-xs font-medium text-white drop-shadow" style={{ width: '20%' }}>優秀</div>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-cyan-50 to-blue-50 p-6 rounded-lg border border-cyan-100">
-                  <h3 className="font-semibold text-gray-800 mb-3">健康建議</h3>
-                  <p className="text-gray-700">
-                    {getRecommendations(testResults.performanceLevel)}
-                  </p>
+                {/* Key Stats */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-white/80 p-4 rounded-lg">
+                    <div className="text-sm text-gray-600 mb-1">年齡組別</div>
+                    <div className="font-semibold text-gray-800">
+                      {testResults.age}歲 {testResults.gender === 'male' ? '男性' : '女性'}
+                    </div>
+                  </div>
+                  <div className="bg-white/80 p-4 rounded-lg">
+                    <div className="text-sm text-gray-600 mb-1">同齡排名</div>
+                    <div className="font-semibold text-gray-800">
+                      {testResults.percentile ? `超越 ${testResults.percentile}% 同齡人` : '計算中...'}
+                    </div>
+                  </div>
                 </div>
               </div>
 

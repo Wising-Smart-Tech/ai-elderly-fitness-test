@@ -111,7 +111,16 @@ export const useMediaPipe = (testType = 'chair_stand') => {
         relevantLandmarks.includes(index)
       );
 
-      // Draw connections (skeleton lines)
+      // Set up gradient for lines
+      const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+      gradient.addColorStop(0, 'rgba(34, 211, 238, 0.8)'); // cyan-400 with opacity
+      gradient.addColorStop(0.5, 'rgba(14, 165, 233, 0.8)'); // sky-500 with opacity
+      gradient.addColorStop(1, 'rgba(20, 184, 166, 0.8)'); // teal-500 with opacity
+
+      // Draw connections (skeleton lines) with gradient
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      
       relevantConnections.forEach(([start, end]) => {
         if (results.poseLandmarks[start] && results.poseLandmarks[end]) {
           ctx.beginPath();
@@ -123,67 +132,56 @@ export const useMediaPipe = (testType = 'chair_stand') => {
             results.poseLandmarks[end].x * canvas.width,
             results.poseLandmarks[end].y * canvas.height
           );
-          ctx.strokeStyle = '#00FF00';
-          ctx.lineWidth = 5;
+          ctx.strokeStyle = gradient;
+          ctx.lineWidth = 4;
           ctx.stroke();
         }
       });
 
-      // Draw landmarks (dots)
+      // Draw landmarks (dots) with cohesive design
       filteredLandmarks.forEach((_, index) => {
         const originalIndex = relevantLandmarks[index];
         if (results.poseLandmarks[originalIndex]) {
           const point = results.poseLandmarks[originalIndex];
+          
+          // Outer glow effect
           ctx.beginPath();
           ctx.arc(
             point.x * canvas.width,
             point.y * canvas.height,
-            8,
+            12,
             0,
             2 * Math.PI
           );
-          ctx.fillStyle = '#FF0000';
+          const glowGradient = ctx.createRadialGradient(
+            point.x * canvas.width,
+            point.y * canvas.height,
+            0,
+            point.x * canvas.width,
+            point.y * canvas.height,
+            12
+          );
+          glowGradient.addColorStop(0, 'rgba(34, 211, 238, 0.4)');
+          glowGradient.addColorStop(1, 'rgba(34, 211, 238, 0)');
+          ctx.fillStyle = glowGradient;
           ctx.fill();
-          ctx.strokeStyle = '#FFFFFF';
+          
+          // Inner dot
+          ctx.beginPath();
+          ctx.arc(
+            point.x * canvas.width,
+            point.y * canvas.height,
+            6,
+            0,
+            2 * Math.PI
+          );
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(14, 165, 233, 0.8)';
           ctx.lineWidth = 2;
           ctx.stroke();
         }
       });
-
-      // Draw angle visualization for chair stand
-      if (testType === 'chair_stand') {
-        // Calculate and display knee angles
-        const leftKneeAngle = calculateAngle(
-          results.poseLandmarks[23], // left hip
-          results.poseLandmarks[25], // left knee
-          results.poseLandmarks[27]  // left ankle
-        );
-        const rightKneeAngle = calculateAngle(
-          results.poseLandmarks[24], // right hip
-          results.poseLandmarks[26], // right knee
-          results.poseLandmarks[28]  // right ankle
-        );
-
-        // Display knee angles on screen
-        ctx.font = '20px Arial';
-        ctx.fillStyle = '#FFFF00';
-        ctx.strokeStyle = '#000000';
-        ctx.lineWidth = 3;
-        
-        if (leftKneeAngle) {
-          const leftKnee = results.poseLandmarks[25];
-          const text = `L: ${Math.round(leftKneeAngle)}�`;
-          ctx.strokeText(text, leftKnee.x * canvas.width - 50, leftKnee.y * canvas.height - 10);
-          ctx.fillText(text, leftKnee.x * canvas.width - 50, leftKnee.y * canvas.height - 10);
-        }
-        
-        if (rightKneeAngle) {
-          const rightKnee = results.poseLandmarks[26];
-          const text = `R: ${Math.round(rightKneeAngle)}�`;
-          ctx.strokeText(text, rightKnee.x * canvas.width + 10, rightKnee.y * canvas.height - 10);
-          ctx.fillText(text, rightKnee.x * canvas.width + 10, rightKnee.y * canvas.height - 10);
-        }
-      }
     }
 
     ctx.restore();
