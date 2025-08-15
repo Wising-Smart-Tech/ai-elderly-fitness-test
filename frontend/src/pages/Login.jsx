@@ -16,7 +16,7 @@ const Login = () => {
   useEffect(() => {
     // Clear any previous errors when component mounts
     clearError();
-  }, []); // Empty dependency array to run only once on mount
+  }, [clearError]); // Empty dependency array to run only once on mount
 
   useEffect(() => {
     // Redirect if already authenticated
@@ -94,15 +94,6 @@ const Login = () => {
             required
             className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
             />
-          </div>
-
-          <div className="text-right">
-            <Link 
-              to="/forgot-password" 
-              className="text-cyan-600 hover:text-cyan-700 text-sm no-underline"
-            >
-              忘記密碼？
-            </Link>
           </div>
 
           <div className="flex gap-4 pt-4">

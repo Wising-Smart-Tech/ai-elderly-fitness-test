@@ -1,5 +1,5 @@
 // src/contexts/AuthContext.jsx
-import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
@@ -160,9 +160,9 @@ const AuthProvider = ({ children }) => {
     toast.success('已登出');
   };
 
-  const clearError = () => {
+  const clearError = useCallback(() => {
     dispatch({ type: AUTH_ACTIONS.CLEAR_ERROR });
-  };
+  }, []);
 
   const updateProfile = async (profileData) => {
     try {
@@ -180,7 +180,7 @@ const AuthProvider = ({ children }) => {
     }
   };
 
-  const value = {
+  const value = useMemo(() => ({
     ...state,
     loading: state.isLoading,
     login,
@@ -188,7 +188,7 @@ const AuthProvider = ({ children }) => {
     logout,
     clearError,
     updateProfile
-  };
+  }), [state, login, register, logout, clearError, updateProfile]);
 
   return (
     <AuthContext.Provider value={value}>
