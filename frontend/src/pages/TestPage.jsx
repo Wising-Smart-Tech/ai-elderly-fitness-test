@@ -589,54 +589,62 @@ const TestPage = () => {
     <div className="min-h-screen bg-gradient-to-br from-blue-500 via-cyan-500 to-teal-500 p-4">
       <div className="max-w-6xl mx-auto">
 
-        {/* Progress Indicator */}
+        {/* Progress Indicator - Timeline Style */}
         {currentTestIndex && currentPhase !== 'selection' && currentPhase !== 'overall' && (
-          <div className="flex justify-center mb-8 gap-2">
-            {[1, 2, 3, 4, 5, 6].map((num) => (
-              <div
-                key={num}
-                className={`flex items-center gap-2 px-3 py-2 rounded-full transition-all ${
-                  num === currentTestIndex 
-                    ? 'bg-white text-blue-600 shadow-lg scale-110' 
-                    : num < currentTestIndex || allTestResults[num]
-                    ? 'bg-white/40 text-white'
-                    : 'bg-white/20 text-white/70'
-                }`}
-              >
-                <div className="w-8 h-8 rounded-full bg-current opacity-20 flex items-center justify-center">
-                  <span className="text-sm font-bold opacity-100">{num}</span>
+          <div className="flex justify-center mb-6 px-4">
+            <div className="relative flex items-center">
+              {/* Connecting Line */}
+              <div className="absolute h-0.5 bg-white/30" style={{ 
+                top: '50%', 
+                transform: 'translateY(-50%)',
+                left: '20px',
+                right: '20px'
+              }}></div>
+              
+              {/* Progress Line (for completed tests) */}
+              {Object.keys(allTestResults).length > 0 && (
+                <div 
+                  className="absolute h-0.5 bg-green-400 transition-all duration-500" 
+                  style={{ 
+                    top: '50%', 
+                    transform: 'translateY(-50%)',
+                    left: '20px',
+                    width: `${Math.min((Object.keys(allTestResults).length - 1) * 60, 300)}px`
+                  }}
+                ></div>
+              )}
+              
+              {/* Test Circles */}
+              {[1, 2, 3, 4, 5, 6].map((num, index) => (
+                <div key={num} className="relative flex items-center">
+                  {index > 0 && <div className="w-10"></div>}
+                  <button
+                    onClick={() => {
+                      setCurrentTestIndex(num);
+                      setCurrentPhase('instructions');
+                    }}
+                    className={`relative w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all duration-300 cursor-pointer hover:scale-110 ${
+                      num === currentTestIndex 
+                        ? 'bg-blue-500 text-white shadow-lg ring-4 ring-blue-300 ring-opacity-50 scale-110' 
+                        : allTestResults[num]
+                        ? 'bg-green-500 text-white shadow-md hover:bg-green-600'
+                        : 'bg-white text-gray-700 shadow-sm hover:bg-gray-100'
+                    }`}
+                  >
+                    {allTestResults[num] ? (
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    ) : (
+                      <span className="text-sm">{num}</span>
+                    )}
+                  </button>
                 </div>
-              </div>
-            ))}
-            <div className={`flex items-center gap-2 px-3 py-2 rounded-full ${
-              currentPhase === 'overall' ? 'bg-white text-blue-600' : 'bg-white/20 text-white/70'
-            }`}>
-              <Award className="w-5 h-5" />
-              <span className="font-medium">總結</span>
+              ))}
             </div>
           </div>
         )}
 
-        {/* Phase Indicator for current test */}
-        {currentTestIndex && currentPhase !== 'selection' && currentPhase !== 'overall' && (
-          <div className="flex justify-center mb-6 gap-4">
-            <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${
-              currentPhase === 'instructions' ? 'bg-white text-blue-600' : 'bg-white/20 text-white'
-            }`}>
-              <span className="font-medium">說明</span>
-            </div>
-            <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${
-              currentPhase === 'test' ? 'bg-white text-blue-600' : 'bg-white/20 text-white'
-            }`}>
-              <span className="font-medium">測試</span>
-            </div>
-            <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${
-              currentPhase === 'results' ? 'bg-white text-blue-600' : 'bg-white/20 text-white'
-            }`}>
-              <span className="font-medium">結果</span>
-            </div>
-          </div>
-        )}
 
         {/* Main Content */}
         <div className="bg-white/95 backdrop-blur rounded-2xl shadow-2xl p-8">
