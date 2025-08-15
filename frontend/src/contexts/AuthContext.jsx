@@ -180,6 +180,14 @@ const AuthProvider = ({ children }) => {
     }
   };
 
+  // Function to update user data in context
+  const updateUser = useCallback((userData) => {
+    dispatch({
+      type: AUTH_ACTIONS.SET_USER,
+      payload: userData
+    });
+  }, []);
+
   const value = useMemo(() => ({
     ...state,
     loading: state.isLoading,
@@ -187,8 +195,9 @@ const AuthProvider = ({ children }) => {
     register,
     logout,
     clearError,
-    updateProfile
-  }), [state, login, register, logout, clearError, updateProfile]);
+    updateProfile,
+    updateUser
+  }), [state, login, register, logout, clearError, updateProfile, updateUser]);
 
   return (
     <AuthContext.Provider value={value}>
