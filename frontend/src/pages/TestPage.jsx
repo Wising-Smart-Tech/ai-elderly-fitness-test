@@ -8,6 +8,7 @@ import { useBackScratchDetection } from '../hooks/useBackScratchDetection';
 import { useSitAndReachDetection } from '../hooks/useSitAndReachDetection';
 import { useEightFootUpAndGoDetection } from '../hooks/useEightFootUpAndGoDetection';
 import { useStepInPlaceDetection } from '../hooks/useStepInPlaceDetection';
+import { useMeterThresholds, calculateScorePosition } from '../hooks/useMeterThresholds';
 import { 
   Activity, Play, RotateCcw, ArrowLeft, Clock, TrendingUp, AlertCircle, 
   CheckCircle, ChevronRight, Home, Award, Ruler, Timer, Footprints
@@ -125,6 +126,25 @@ const TestPage = () => {
     }
     return age;
   }, [user]);
+
+  // Calculate user age and age group for API calls
+  const userAge = calculateAge();
+  const getAgeGroup = (age) => {
+    if (age >= 90) return '90+';
+    if (age >= 85) return '85-89';
+    if (age >= 80) return '80-84';
+    if (age >= 75) return '75-79';
+    if (age >= 70) return '70-74';
+    if (age >= 65) return '65-69';
+    return '60-64';
+  };
+
+  // Get meter thresholds from API for current test
+  const { thresholds: apiThresholds, loading: thresholdsLoading } = useMeterThresholds(
+    currentTestIndex, // Current test ID
+    user?.gender || 'male',
+    getAgeGroup(userAge)
+  );
 
   // Cleanup camera when leaving test phase or unmounting
   useEffect(() => {
@@ -248,7 +268,7 @@ const TestPage = () => {
 
     setIsSubmitting(true);
     try {
-      const userAge = calculateAge();
+      const currentUserAge = userAge;
       const score = getTestScore();
       
       // Submit result
@@ -262,7 +282,7 @@ const TestPage = () => {
           sessionId: sessionId,
           testTypeId: currentTestIndex,
           score: score,
-          userAge: userAge,
+          userAge: currentUserAge,
           userGender: user?.gender || 'male',
           rawData: {
             duration: TEST_CONFIGS[currentTestIndex - 1].duration,
@@ -279,7 +299,7 @@ const TestPage = () => {
         score: score,
         performanceLevel: data.data?.result?.performance_level || data.performanceLevel,
         percentile: data.data?.result?.percentile || data.percentile,
-        age: userAge,
+        age: currentUserAge,
         gender: user?.gender || 'male'
       };
       
@@ -364,16 +384,23 @@ const TestPage = () => {
     return colors[level] || 'text-gray-600';
   };
   
-  // Get indicator position based on performance level
-  const getIndicatorPosition = (level) => {
-    const positions = {
-      'poor': '10%',
-      'fair': '30%',
-      'average': '50%',
-      'good': '70%',
-      'excellent': '90%'
-    };
-    return positions[level] || '50%';
+  // Get indicator position based on performance level using API thresholds
+  const getIndicatorPosition = (level, score = null) => {
+    if (!apiThresholds || !testResults || !score) {
+      // Fallback to static positions if no API data
+      const positions = {
+        'poor': '10%',
+        'fair': '30%',
+        'average': '50%',
+        'good': '70%',
+        'excellent': '90%'
+      };
+      return positions[level] || '50%';
+    }
+
+    // Calculate position based on actual score and API thresholds
+    const position = calculateScorePosition(score, apiThresholds);
+    return `${Math.max(5, Math.min(95, position))}%`;
   };
 
   // Get test-specific instructions
@@ -974,7 +1001,7 @@ const TestPage = () => {
                     <div className="relative h-8 mb-2">
                       <div 
                         className="absolute top-0"
-                        style={{ left: getIndicatorPosition(testResults.performanceLevel), transform: 'translateX(-50%)' }}
+                        style={{ left: getIndicatorPosition(testResults.performanceLevel, testResults.score), transform: 'translateX(-50%)' }}
                       >
                         <div className="text-sm font-bold text-cyan-600 mb-1">
                           {testResults.percentile}%
