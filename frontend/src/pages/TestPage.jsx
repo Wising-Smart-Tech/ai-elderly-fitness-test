@@ -593,37 +593,25 @@ const TestPage = () => {
         {currentTestIndex && currentPhase !== 'selection' && currentPhase !== 'overall' && (
           <div className="flex justify-center mb-6 px-4">
             <div className="relative flex items-center">
-              {/* Connecting Line */}
-              <div className="absolute h-0.5 bg-white/30" style={{ 
-                top: '50%', 
-                transform: 'translateY(-50%)',
-                left: '20px',
-                right: '20px'
-              }}></div>
-              
-              {/* Progress Line (for completed tests) */}
-              {Object.keys(allTestResults).length > 0 && (
-                <div 
-                  className="absolute h-0.5 bg-green-400 transition-all duration-500" 
-                  style={{ 
-                    top: '50%', 
-                    transform: 'translateY(-50%)',
-                    left: '20px',
-                    width: `${Math.min((Object.keys(allTestResults).length - 1) * 60, 300)}px`
-                  }}
-                ></div>
-              )}
-              
-              {/* Test Circles */}
+              {/* Test Circles with connecting lines */}
               {[1, 2, 3, 4, 5, 6].map((num, index) => (
                 <div key={num} className="relative flex items-center">
-                  {index > 0 && <div className="w-10"></div>}
+                  {/* Connecting line between circles */}
+                  {index > 0 && (
+                    <div 
+                      className={`w-10 h-0.5 transition-all duration-500 ${
+                        allTestResults[num] && allTestResults[num - 1] 
+                          ? 'bg-green-400' 
+                          : 'bg-white/30'
+                      }`}
+                    ></div>
+                  )}
                   <button
                     onClick={() => {
                       setCurrentTestIndex(num);
                       setCurrentPhase('instructions');
                     }}
-                    className={`relative w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all duration-300 cursor-pointer hover:scale-110 ${
+                    className={`relative w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all duration-300 cursor-pointer hover:scale-110 z-10 ${
                       num === currentTestIndex 
                         ? 'bg-blue-500 text-white shadow-lg ring-4 ring-blue-300 ring-opacity-50 scale-110' 
                         : allTestResults[num]
@@ -814,6 +802,84 @@ const TestPage = () => {
                     </div>
                   </div>
                 )}
+                
+                {/* Overlays when test is running */}
+                {currentTestHook.testPhase === 'testing' && (
+                  <>
+                    {/* Stop button - top left */}
+                    <button
+                      onClick={handleStopTest}
+                      className="absolute top-4 left-4 w-10 h-10 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center transition-all hover:scale-110 shadow-lg z-20"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                    
+                    {/* Timer - top right */}
+                    {(currentTestIndex === 1 || currentTestIndex === 2 || currentTestIndex === 6) && (
+                      <div className="absolute top-4 right-4 bg-gradient-to-br from-blue-600/80 to-cyan-600/80 backdrop-blur-sm text-white px-5 py-3 rounded-2xl shadow-lg z-10">
+                        <div className="flex items-center gap-3">
+                          <Clock className="w-6 h-6" />
+                          <span className="text-2xl font-bold">
+                            {currentTestIndex === 6 ? currentTestHook.formattedTime : `0:${currentTestHook.timeRemaining.toString().padStart(2, '0')}`}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Main count/measurement - bottom left */}
+                    {currentTestIndex !== 5 && (
+                      <div className="absolute bottom-8 left-8 z-10">
+                        <div className="bg-gradient-to-br from-green-600/80 to-teal-600/80 backdrop-blur-sm text-white px-8 py-4 rounded-3xl text-center shadow-lg">
+                          <div className="text-6xl font-bold">
+                            {currentTestIndex === 1 || currentTestIndex === 2 ? currentTestHook.repCount :
+                             currentTestIndex === 3 ? `${Math.abs(currentTestHook.distance).toFixed(1)}` :
+                             currentTestIndex === 4 ? `${currentTestHook.reachDistance.toFixed(1)}` :
+                             currentTestIndex === 6 ? currentTestHook.stepCount : ''}
+                          </div>
+                          <div className="text-base opacity-90 mt-1">
+                            {currentTestIndex === 1 || currentTestIndex === 2 ? '完成次數' :
+                             currentTestIndex === 3 || currentTestIndex === 4 ? '公分' :
+                             currentTestIndex === 6 ? '抬膝次數' : ''}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Timer for test 5 (8-foot up and go) - bottom left */}
+                    {currentTestIndex === 5 && (
+                      <div className="absolute bottom-8 left-8 z-10">
+                        <div className="bg-gradient-to-br from-orange-600/80 to-red-600/80 backdrop-blur-sm text-white px-8 py-4 rounded-3xl text-center shadow-lg">
+                          <div className="text-6xl font-bold">
+                            {currentTestHook.elapsedTime}
+                          </div>
+                          <div className="text-base opacity-90 mt-1">秒</div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Status - bottom right */}
+                    <div className="absolute bottom-8 right-8 z-10">
+                      <div className="bg-gradient-to-br from-blue-500/70 to-cyan-500/70 backdrop-blur-sm text-white px-6 py-3 rounded-2xl text-center shadow-md">
+                        <span className="text-lg font-semibold">
+                          {currentTestIndex === 1 ? (currentTestHook.isStanding ? '站立' : '坐下') :
+                           currentTestIndex === 2 ? (currentTestHook.isFlexed ? '彎曲' : '伸直') :
+                           currentTestIndex === 3 ? (currentTestHook.isOverlapping ? '手指重疊' : '手指未重疊') :
+                           currentTestIndex === 4 ? (currentTestHook.isReaching ? '前彎中' : '準備') :
+                           currentTestIndex === 5 ? 
+                             (currentTestHook.currentPosition === 'sitting' ? '坐著' :
+                              currentTestHook.currentPosition === 'standing' ? '站立' :
+                              currentTestHook.currentPosition === 'walking' ? '行走中' : '返回中') :
+                           currentTestIndex === 6 ? 
+                             (currentTestHook.isSteppingLeft ? '左腳抬起' :
+                              currentTestHook.isSteppingRight ? '右腳抬起' : '準備') : ''}
+                        </span>
+                      </div>
+                    </div>
+                  </>
+                )}
+                
                 {/* Countdown Display */}
                 {currentTestHook.countdown > 0 && (
                   <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-10 pointer-events-none">
@@ -859,14 +925,8 @@ const TestPage = () => {
                     </button>
                   </>
                 ) : currentTestHook.testPhase === 'testing' ? (
-                  <>
-                    <button
-                      onClick={handleStopTest}
-                      className="px-6 py-3 bg-gradient-to-r from-red-500 to-orange-500 text-white rounded-lg font-medium hover:shadow-lg transition-all"
-                    >
-                      停止測試
-                    </button>
-                  </>
+                  // Empty during testing - stop button is now overlaid on camera
+                  null
                 ) : currentTestHook.testPhase === 'completed' ? (
                   <button
                     onClick={handleReset}
@@ -876,11 +936,6 @@ const TestPage = () => {
                     重新測試
                   </button>
                 ) : null}
-              </div>
-
-              {/* Stats Display */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {renderTestStats()}
               </div>
             </div>
           )}
