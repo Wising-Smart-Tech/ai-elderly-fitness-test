@@ -176,7 +176,11 @@ export const useMediaPipe = (testName = '') => {
     ctx.save();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Draw video frame
+    // Apply mirror transformation
+    ctx.scale(-1, 1);
+    ctx.translate(-canvas.width, 0);
+
+    // Draw video frame (mirrored)
     ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
 
     if (results.poseLandmarks) {
@@ -223,22 +227,24 @@ export const useMediaPipe = (testName = '') => {
         const originalIndex = relevantLandmarks[index];
         if (results.poseLandmarks[originalIndex]) {
           const point = results.poseLandmarks[originalIndex];
+          const x = point.x * canvas.width;
+          const y = point.y * canvas.height;
           
           // Outer glow effect
           ctx.beginPath();
           ctx.arc(
-            point.x * canvas.width,
-            point.y * canvas.height,
+            x,
+            y,
             12,
             0,
             2 * Math.PI
           );
           const glowGradient = ctx.createRadialGradient(
-            point.x * canvas.width,
-            point.y * canvas.height,
+            x,
+            y,
             0,
-            point.x * canvas.width,
-            point.y * canvas.height,
+            x,
+            y,
             12
           );
           glowGradient.addColorStop(0, 'rgba(34, 211, 238, 0.4)');
@@ -249,8 +255,8 @@ export const useMediaPipe = (testName = '') => {
           // Inner dot
           ctx.beginPath();
           ctx.arc(
-            point.x * canvas.width,
-            point.y * canvas.height,
+            x,
+            y,
             6,
             0,
             2 * Math.PI
