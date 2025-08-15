@@ -2,6 +2,7 @@
 const express = require("express");
 const router = express.Router();
 const { body, param, query } = require("express-validator");
+const pool = require("../config/database");
 const testController = require("../controllers/testController");
 const { authenticateToken } = require("../middleware/auth");
 const { validateRequest } = require("../middleware/validation");
@@ -37,14 +38,64 @@ const { validateRequest } = require("../middleware/validation");
  *           description: Raw pose detection data
  */
 
-// Add simplified results endpoint for current user
+// Get test results for current user
 router.get("/results", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
-    // For now, return empty results
+    const { testType } = req.query;
+    
+    let query = `
+      SELECT 
+        tr.id,
+        tr.test_type_id,
+        tt.name as test_name,
+        tr.score,
+        tr.performance_level,
+        tr.percentile,
+        tr.raw_data,
+        tr.created_at,
+        ts.id as session_id,
+        ts.notes as session_notes,
+        ts.session_start as session_date
+      FROM test_results tr
+      JOIN test_types tt ON tr.test_type_id = tt.id
+      JOIN test_sessions ts ON tr.session_id = ts.id
+      WHERE ts.user_id = $1
+    `;
+    
+    const params = [userId];
+    
+    // Add test type filter if provided
+    if (testType && testType !== 'all') {
+      query += ` AND tt.id = $2`;
+      params.push(testType);
+    }
+    
+    query += ` ORDER BY tr.created_at DESC`;
+    
+    const result = await pool.query(query, params);
+    
+    // Format the results
+    const formattedResults = result.rows.map(row => ({
+      id: row.id,
+      testTypeId: row.test_type_id,
+      testName: row.test_name,
+      testNameZh: getChineseTestName(row.test_type_id),
+      score: row.score,
+      performanceLevel: row.performance_level,
+      percentile: row.percentile,
+      rawData: row.raw_data,
+      createdAt: row.created_at,
+      sessionId: row.session_id,
+      sessionNotes: row.session_notes,
+      sessionDate: row.session_date,
+      unit: getTestUnit(row.test_type_id)
+    }));
+    
     res.json({
       success: true,
-      results: []
+      results: formattedResults,
+      count: formattedResults.length
     });
   } catch (error) {
     console.error('Error fetching results:', error);
@@ -54,6 +105,32 @@ router.get("/results", authenticateToken, async (req, res) => {
     });
   }
 });
+
+// Helper function to get Chinese test names
+function getChineseTestName(testTypeId) {
+  const names = {
+    1: '椅子坐立測試',
+    2: '肱二頭肌手臂屈舉',
+    3: '抓背測驗',
+    4: '椅子坐姿體前彎',
+    5: '8英呎起身繞行',
+    6: '原地站立抬膝'
+  };
+  return names[testTypeId] || '未知測試';
+}
+
+// Helper function to get test units
+function getTestUnit(testTypeId) {
+  const units = {
+    1: '次',
+    2: '次',
+    3: '公分',
+    4: '公分',
+    5: '秒',
+    6: '次'
+  };
+  return units[testTypeId] || '';
+}
 
 /**
  * @swagger
